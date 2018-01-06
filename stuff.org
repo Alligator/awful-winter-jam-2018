@@ -1,0 +1,22 @@
+* Work log
+** General time
+   :LOGBOOK:
+   CLOCK: [2018-01-05 Fri 20:12]--[2018-01-06 Sat 01:12] =>  5:00
+   :END:
+
+* Todo
+** DONE shuffle the pieces
+** DONE get one following the mouse with snapping n stuff
+** TODO 1 tile border around the edge to stop game breaking stuff
+** TODO drop delay
+** TODO place name generator hell yeah
+
+* Ideas etc
+** Use palette swapping to randomly generate the colours of the two sides each round
+** Start off in a city that you have to expand out from, through your districts avoiding their districts?
+** At the end of the round count the number of squares in your district that are your colour
+   I guess that means you could survive the round but lose on votes?
+** Defenses?
+   Doesn't seem like you should have cannons or w/e. Lawyers?
+** Read up on the history of gerrymandering a bit more
+   There might be good weird stuff in there I can base things off of.
