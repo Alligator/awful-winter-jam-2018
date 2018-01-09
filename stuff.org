@@ -1,7 +1,7 @@
 * Work log
 ** General time
    :LOGBOOK:
-   CLOCK: [2018-01-09 Tue 18:39]
+   CLOCK: [2018-01-09 Tue 18:39]--[2018-01-09 Tue 23:41] =>  5:02
    CLOCK: [2018-01-08 Mon 22:10]--[2018-01-09 Tue 01:58] =>  3:48
    CLOCK: [2018-01-08 Mon 19:20]--[2018-01-08 Mon 21:03] =>  1:43
    CLOCK: [2018-01-08 Mon 18:35]--[2018-01-08 Mon 18:54] =>  0:19
@@ -27,6 +27,8 @@
 ** Bugs
 *** DONE fix droplets being able to land on molasses
 *** TODO can't build in enclosed areas
+    jesus christ my brain is fried i cannot figure out the conditional
+    for this.
 ** Done
 *** DONE rotation
 *** DONE if you spam click you can build more walls than you should be able to
@@ -48,4 +50,5 @@
 ** Droplets are fired from the corner where the molasses started
 *** If they land in empty spot, droplets create a new square of molasses
 *** If they land on a wall, they destroy it
-*** If they land in an enclosed space they fizzle
+*** If they land in an enclosed space they fizzl
+** Capturing people gives you resources (more pieces to place)

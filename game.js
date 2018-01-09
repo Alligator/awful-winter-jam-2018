@@ -1,24 +1,40 @@
 // input: mouse
 // script: js
 
+const MAP_SCRATCH_X = 210;
+const MAP_SCRATCH_Y = 119;
 const MAP_PIECE_START = 225;
 const MAP_PIECE_WIDTH = 3;
 const MAP_PIECE_HEIGHT = 3;
-const MAP_SCRATCH_X = 210;
-const MAP_SCRATCH_Y = 119;
 
 const TILE_GRASS = 1;
 const TILE_WATER = 2;
-const TILE_FLOOR = 3;
+const TILE_FLOOR = 9;
 
-const TILE_SOLID = 16;
+const TILE_WALL = 3;
+const TILE_WALL_CRACKED = TILE_WALL + 1;
+const TILE_MOLASSES = 5;
+const TILE_INERT_MOLASSES = 6;
 
-const TILE_WALL = 17;
-const TILE_MOLASSES = 18;
-const TILE_INERT_MOLASSES = 34;
+const TYPE_FLOOR = 100;
+const TYPE_WALL = 101;
+const TYPE_ENCLOSED = 101;
+const TYPE_MOLASSES = 102;
+const TYPE_SPREADABLE = 103;
 
-const SPRITE_DROPLET = 19;
-const SPRITE_SURVIVOR = 20;
+const tileTypes = {};
+tileTypes[TILE_GRASS]          = TYPE_FLOOR;
+tileTypes[TILE_WATER]          = TYPE_SPREADABLE;
+tileTypes[TILE_FLOOR]          = TYPE_ENCLOSED;
+
+tileTypes[TILE_WALL]           = TYPE_WALL;
+tileTypes[TILE_WALL_CRACKED]   = TYPE_WALL;
+
+tileTypes[TILE_MOLASSES]       = TYPE_MOLASSES;
+tileTypes[TILE_INERT_MOLASSES] = TYPE_MOLASSES;
+
+const SPRITE_DROPLET = 17;
+const SPRITE_SURVIVOR = 18;
 
 const maps = [
     {
@@ -96,7 +112,7 @@ function PopulateMapState() {
 	    const x = Math.floor(Math.random() * 30);
 	    const y = Math.floor(Math.random() * 30);
 
-	    if (x <= 0 || x >= 29 || y <= 0 || y >= 16 || mget(x, y) !== TILE_GRASS) continue;
+	    if (x <= 0 || x >= 29 || y <= 0 || y >= 16 || tileTypes[mget(x, y)] !== TYPE_FLOOR) continue;
 
 	    var tooClose = false;
 
@@ -123,15 +139,15 @@ function PopulateMapState() {
     return self;
 }
 
-function TransitionState(time, message, nextState) {
+function TransitionState(delay, message, nextState) {
     var self = {
-	time,
+	delay,
 	message: message,
     };
 
     self.update = function() {
-	if (self.time > 0) {
-	    self.time--;
+	if (self.delay > 0) {
+	    self.delay--;
 	} else {
 	    gameState.transition(nextState);
 	}
@@ -148,14 +164,15 @@ function TransitionState(time, message, nextState) {
     return self;
 }
 
-function BuildState(piecesToPlace, time) {
+function BuildState(piecesToPlace) {
     var self = {
-	currentPiece: null,
+	hasPiece: false,
 	piecesRemaining: piecesToPlace,
 	placementTimer: 0,
 	filled: [],
 	rotation: 0,
-	timeLeft: time,
+	mouseTileX: 0,
+	mouseTileY: 0,
     };
 
     const shadowColour = 15;
@@ -169,26 +186,25 @@ function BuildState(piecesToPlace, time) {
     self.getRandomPiece = function() {
 	const numberOfPieces = (240 - MAP_PIECE_START) / MAP_PIECE_WIDTH;
 	const pieceX = Math.floor(Math.random() * numberOfPieces) * MAP_PIECE_WIDTH;
-	return {
-	    x: pieceX + MAP_PIECE_START,
-	    y: 136 - MAP_PIECE_HEIGHT,
-	};
+	for (var x = 0; x < MAP_PIECE_WIDTH; x++) {
+	    for (var y = 0; y < MAP_PIECE_HEIGHT; y++) {
+		const tile = mget(MAP_PIECE_START + pieceX + x, (136 - MAP_PIECE_HEIGHT) + y);
+		mset(MAP_SCRATCH_X + x, MAP_SCRATCH_Y + y, tile ? TILE_WALL : 0);
+	    }
+	}
     };
 
     self.checkValidPlacement = function() {
-	const piece = self.currentPiece;
-
 	for (var x = 0; x < MAP_PIECE_WIDTH; x++) {
 	    for (var y = 0; y < MAP_PIECE_HEIGHT; y++) {
-		const tile = mget(piece.x + x, piece.y + y);
-		const coords = self.getRotatedCoords(x, y, 0, 0);
-		const mx = coords.x + piece.sx/8;
-		const my = coords.y + piece.sy/8;
+		const tile = mget(MAP_SCRATCH_X + x, MAP_SCRATCH_Y + y);
+		const mx = x + self.mouseTileX;
+		const my = y + self.mouseTileY;
 		const mapTile = mget(mx, my);
 		const entity = getEntity(mx, my);
 
 		if (tile > 0) {
-		    if (mapTile != TILE_GRASS
+		    if (tileTypes[mapTile] != TYPE_FLOOR
 			|| (entity && entity.type !== 'DROPLET')
 			|| mx < 0 || mx > 29
 			|| my < 0 || my > 16
@@ -204,7 +220,7 @@ function BuildState(piecesToPlace, time) {
     self.checkFloodTile = function(x,  y) {
 	return x >= -1 && x <= 30
 	    && y >= -1 && y <= 17
-	    && (mget(x, y) != TILE_WALL)
+	    && (tileTypes[mget(x, y)] != TYPE_WALL)
 	    && !(self.filled[y * 30 + x]);
     };
 
@@ -226,9 +242,9 @@ function BuildState(piecesToPlace, time) {
     self.setMapFromFloodFill = function() {
 	for (var x = 0; x < 30; x++) {
 	    for (var y = 0; y < 17; y++) {
-		if (!(self.filled[y * 30 + x]) && mget(x, y) !== TILE_WALL) {
+		if (!(self.filled[y * 30 + x]) && tileTypes[mget(x, y)] !== TYPE_WALL) {
 		    mset(x, y, TILE_FLOOR);
-		} else if (mget(x, y) === TILE_FLOOR) {
+		} else if (tileTypes[mget(x, y)] === TYPE_FLOOR) {
 		    resetMapTile(globals.mapId, x, y);
 		}
 	    }
@@ -242,15 +258,12 @@ function BuildState(piecesToPlace, time) {
     };
 
     self.placeCurrentPiece = function() {
-	const piece = self.currentPiece;
-
 	for (var x = 0; x < MAP_PIECE_WIDTH; x++) {
 	    for (var y = 0; y < MAP_PIECE_HEIGHT; y++) {
-		const tile = mget(piece.x + x, piece.y + y);
+		const tile = mget(MAP_SCRATCH_X + x, MAP_SCRATCH_Y + y);
 		if (tile) {
-		    const coords = self.getRotatedCoords(x, y, piece.sx, piece.sy);
-		    const mx = coords.x + piece.sx/8;
-		    const my = coords.y + piece.sy/8;
+		    const mx = x + self.mouseTileX;
+		    const my = y + self.mouseTileY;
 		    mset(mx, my, tile);
 		    if (getEntity(mx, my)) {
 			setEntity(mx, my, null);
@@ -261,41 +274,34 @@ function BuildState(piecesToPlace, time) {
     }
 
     self.rotate = function() {
-	self.rotation = (self.rotation + 90) % 360;
-    }
+	// just rotate 90, duh
+	const newTiles = [];
 
-    self.getRotatedCoords = function(x, y, tx, ty) {
-	var rotationMatrix = [1, 0, 0, 1]
-	switch (self.rotation) {
-	    case  90: rotationMatrix = [0, 1, -1, 0]; break;
-	    case 180: rotationMatrix = [-1, 0, 0, -1]; break;
-	    case 270: rotationMatrix = [0, -1, 1, 0]; break;
-	};
+	for (var x = 0; x < MAP_PIECE_WIDTH; x++) {
+	    for (var y = 0; y < MAP_PIECE_HEIGHT; y++) {
+		const rotateX = (-y) + 2;
+		const rotateY = x;
+		const tile = mget(MAP_SCRATCH_X + x, MAP_SCRATCH_Y + y);
+		if (tile) {
+		    newTiles.push({
+			x: MAP_SCRATCH_X + rotateX,
+			y: MAP_SCRATCH_Y + rotateY,
+			tile,
+		    });
+		    mset(MAP_SCRATCH_X + x, MAP_SCRATCH_Y + y, 0);
+		}
+	    }
+	}
 
-	const newX = (x * rotationMatrix[0] + y * rotationMatrix[1]) - xOffset;
-	const newY = (x * rotationMatrix[2] + y * rotationMatrix[3]) - yOffset;
-
-	return {
-	    x: newX,
-	    y: newY,
-	};
-
-	/*
-	const xOffset = ((rotationMatrix[0] + rotationMatrix[1]) - 1);
-	const yOffset = ((rotationMatrix[2] + rotationMatrix[3]) - 1);
-
-	return {
-	    x: newX,
-	    y: newY,
-	    sx: newX * 8 + sx,
-	    sy: newY * 8 + sy,
-	};
-	*/
+	for (var i = 0; i < newTiles.length; i++) {
+	    mset(newTiles[i].x, newTiles[i].y, newTiles[i].tile);
+	}
     }
 
     self.update = function() {
-	if (self.currentPiece === null) {
-	    self.currentPiece = self.getRandomPiece();
+	if (!self.hasPiece) {
+	    self.getRandomPiece();
+	    self.hasPiece = true;
 	    self.rotation = 0;
 	}
 
@@ -305,22 +311,14 @@ function BuildState(piecesToPlace, time) {
 	}
 
 	const m = mouse();
-	self.currentPiece.tx = Math.floor(m[0] / 8);
-	self.currentPiece.ty = Math.floor(m[1] / 8);
-	/*
-	self.currentPiece.sx = m[0] - MAP_PIECE_WIDTH * 4;
-	self.currentPiece.sy = m[1] - MAP_PIECE_HEIGHT * 4;
-
-	// snap
-	self.currentPiece.sx -= self.currentPiece.sx % 8;
-	self.currentPiece.sy -= self.currentPiece.sy % 8;
-	*/
+	self.mouseTileX = Math.floor(m[0] / 8) - 1;
+	self.mouseTileY = Math.floor(m[1] / 8) - 1;
 
 	self.validPlacement = self.checkValidPlacement();
 	if (time() > self.placementTimer) {
 	    if (m[2] && self.validPlacement) {
 		self.placeCurrentPiece()
-		self.currentPiece = null;
+		self.hasPiece = false;
 		self.piecesRemaining--;
 		self.placementTimer = time() + 200;
 		self.floodFill();
@@ -332,11 +330,9 @@ function BuildState(piecesToPlace, time) {
     };
 
     self.drawShadow = function() {
-	const piece = self.currentPiece;
-
 	for (var x = 0; x < MAP_PIECE_WIDTH; x++) {
 	    for (var y = 0; y < MAP_PIECE_HEIGHT; y++) {
-		const tile = mget(piece.x + x, piece.y + y);
+		const tile = mget(MAP_SCRATCH_X + x, MAP_SCRATCH_Y + y);
 		if (tile) {
 		    var c = shadowColour;
 		    if (!self.validPlacement) {
@@ -346,8 +342,7 @@ function BuildState(piecesToPlace, time) {
 		    } else {
 			c = shadowColour;
 		    }
-		    const coords = self.getRotatedCoords(x, y);
-		    //rectb(coords.sx, coords.sy, 8, 8, c);
+		    rectb((self.mouseTileX + x) * 8, (self.mouseTileY + y) * 8, 8, 8, c);
 		}
 	    }
 	}
@@ -368,11 +363,21 @@ function BuildState(piecesToPlace, time) {
 	drawEntities();
 
 	// self.drawFlood();
-	if (self.currentPiece && self.piecesRemaining > 0) {
+	if (self.hasPiece && self.piecesRemaining > 0) {
 	    self.drawShadow();
 	}
 	print(self.piecesRemaining);
 	print(self.rotation, 0, 8);
+
+	for (var x = 0; x < MAP_PIECE_WIDTH; x++) {
+	    for (var y = 0; y < MAP_PIECE_HEIGHT; y++) {
+		if (mget(MAP_SCRATCH_X + x, MAP_SCRATCH_Y + y)) {
+		    pix(x + 10, y + 10, 11);
+		} else {
+		    pix(x + 10, y + 10, 6);
+		}
+	    }
+	}
     };
 
     return self;
@@ -401,13 +406,19 @@ function MolassesState(updates) {
 	    const px = Math.floor(drop.pos.x/8);
 	    const py = Math.ceil(drop.pos.y/8);
 
-	    if (mget(px, py) === TILE_WALL) {
+	    if (tileTypes[mget(px, py)] === TYPE_WALL) {
 		// destroy the wall and disappear
-		mset(px, py, mget(px + 30, py));
+		const tile = mget(px, py);
+		const health = tile - TILE_WALL;
+		if (health === 1) {
+		    mset(px, py, mget(px + 30, py));
+		} else {
+		    mset(px, py, tile - 1);
+		}
 		return false;
 	    }
 
-	    if (tm > drop.time && mget(px, py) !== TILE_FLOOR) {
+	    if (tm > drop.time && tileTypes[mget(px, py)] !== TYPE_FLOOR) {
 		setEntity(drop.target.x/8, drop.target.y/8, {
 		    type: 'DROPLET',
 		    sprite: SPRITE_DROPLET,
@@ -428,21 +439,31 @@ function MolassesState(updates) {
     };
 
     self.isMolasses = function(x, y) {
-	const tile = mget(x, y);
-	return tile === TILE_MOLASSES || tile === TILE_INERT_MOLASSES;
-    }
+	const tile = tileTypes[mget(x, y)];
+	return tile === TYPE_MOLASSES;
+    };
+
+    self.isSurrounded = function(x, y) {
+	return ((x > 0 && self.isMolasses(x-1, y))
+		&& (x < 30 && self.isMolasses(x+1, y))
+		&& (y > 0 && self.isMolasses(x, y-1))
+		&& (y < 17 && self.isMolasses(x, y+1)));
+    };
+
+    self.forNeighbours = function(x, y, fn) {
+	if (x > 0)  fn(x-1, y);
+	if (x < 30) fn(x+1, y);
+	if (y > 0)  fn(x, y+1);
+	if (y < 17) fn(x, y-1);
+    };
 
     self.spread = function() {
 	for (var x = 0; x < 30; x++) {
 	    for (var y = 0; y < 30; y++) {
-		if (mget(x, y) != TILE_MOLASSES) continue;
+		if (tileTypes[mget(x, y)] != TYPE_MOLASSES) continue;
 		if (Math.random() > 0.5) continue;
 
-		if ((x > 0 && self.isMolasses(x-1, y))
-		    && (x < 30 && self.isMolasses(x+1, y))
-		    && (y > 0 && self.isMolasses(x, y-1))
-		    && (y < 17 && self.isMolasses(x, y+1))) {
-		    // this tile is entirely surrounded
+		if (self.isSurrounded(x, y)) {
 		    mset(x, y, TILE_INERT_MOLASSES);
 		    continue;
 		}
@@ -458,8 +479,16 @@ function MolassesState(updates) {
 		    case 3: nextX = x;     nextY = y - 1; break;
 		}
 
-		if (mget(nextX, nextY) <= TILE_SOLID) {
+		const t = tileTypes[mget(nextX, nextY)];
+		if (t === TYPE_FLOOR || t === TYPE_SPREADABLE) {
 		    mset(nextX, nextY, TILE_MOLASSES);
+
+		    self.forNeighbours(x, y, function(nx, ny) {
+			if (self.isSurrounded(nx, ny)) {
+			    mset(nx, ny, TILE_INERT_MOLASSES);
+			}
+		    });
+
 		    const entity = getEntity(nextX, nextY);
 		    if (entity && entity.type === 'DROPLET') {
 			setEntity(nextX, nextY, null);
@@ -467,13 +496,18 @@ function MolassesState(updates) {
 		}
 
 		var dropletChance = 0.15;
-		if (mget(nextX, nextY) === TILE_WALL) {
-		    // if the molasses tries to flow into a wall, make
-		    // it more likely to create a droplet
-		    dropletChance = 0.3;
+		if (t === TYPE_WALL) {
+		    const tile = mget(nextX, nextY);
+		    const health = TILE_WALL_CRACKED - tile;
+		    if (health > 0) {
+			mset(nextX, nextY, tile + 1);
+		    } else {
+			resetMapTile(globals.mapId, nextX, nextY);
+		    }
 		}
 
 		// droplets, very low chance
+		/*
 		if (Math.random() < dropletChance) {
 		    const distance = 12;
 		    const dropX = Math.floor(Math.random() * distance) - (distance/2) + x;
@@ -489,6 +523,7 @@ function MolassesState(updates) {
 			});
 		    }
 		}
+		*/
 	    }
 	}
     };
@@ -525,7 +560,7 @@ function MolassesState(updates) {
 	    if (!getEntity(nextX, nextY)
 		&& nextX > 0 && nextX < 29
 		&& nextY > 0 && nextY < 16
-		&& (tile === TILE_GRASS || tile === TILE_FLOOR)) {
+		&& (tileTypes[tile] === TYPE_FLOOR)) {
 		setEntity(x, y, null);
 		setEntity(nextX, nextY, entity);
 	    }
@@ -565,17 +600,18 @@ function MolassesState(updates) {
 // MAP
 function copyMap(mapId) {
     const map = maps[mapId];
-    for (var i = 0; i < 17; i++) {
-	// TODO support maps not at y = 0
-	const rowStart = 0x8000 + (i * 30 * 8);
-	memcpy(rowStart, rowStart + map.x, 30); 
+
+    for (var x = 0; x < 30; x++) {
+	for (var y = 0; y < 17; y++) {
+	    mset(x, y, mget(x + map.x, y + map.y));
+	}
     }
 }
 
 function resetMapTile(mapId, x, y) {
     // TODO support maps that aren't on y = 0
     const map = maps[mapId];
-    mset(x, y, mget(x + maps.x, y));
+    mset(x, y, mget(x + map.x, y));
 }
 
 function drawMap() {
@@ -638,6 +674,7 @@ function TIC() {
     } catch (e) {
 	// thanks tic-80
 	trace(e.lineNumber + ': ' + e);
+	trace(e.stack);
 	exit();
     }
 }
