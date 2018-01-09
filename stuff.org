@@ -1,7 +1,8 @@
 * Work log
 ** General time
    :LOGBOOK:
-   CLOCK: [2018-01-08 Mon 22:10]
+   CLOCK: [2018-01-09 Tue 18:39]
+   CLOCK: [2018-01-08 Mon 22:10]--[2018-01-09 Tue 01:58] =>  3:48
    CLOCK: [2018-01-08 Mon 19:20]--[2018-01-08 Mon 21:03] =>  1:43
    CLOCK: [2018-01-08 Mon 18:35]--[2018-01-08 Mon 18:54] =>  0:19
    CLOCK: [2018-01-07 Sun 19:36]--[2018-01-07 Sun 20:35] =>  0:59
@@ -24,7 +25,7 @@
 *** TODO some kinda explosion when droplets hit walls
 *** TODO defenses
 ** Bugs
-*** TODO fix droplets being able to land on molasses
+*** DONE fix droplets being able to land on molasses
 *** TODO can't build in enclosed areas
 ** Done
 *** DONE rotation

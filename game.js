@@ -4,6 +4,8 @@
 const MAP_PIECE_START = 225;
 const MAP_PIECE_WIDTH = 3;
 const MAP_PIECE_HEIGHT = 3;
+const MAP_SCRATCH_X = 210;
+const MAP_SCRATCH_Y = 119;
 
 const TILE_GRASS = 1;
 const TILE_WATER = 2;
@@ -13,12 +15,16 @@ const TILE_SOLID = 16;
 
 const TILE_WALL = 17;
 const TILE_MOLASSES = 18;
+const TILE_INERT_MOLASSES = 34;
 
 const SPRITE_DROPLET = 19;
 const SPRITE_SURVIVOR = 20;
 
 const maps = [
-    { x: 30, y: 0 },
+    {
+	x: 30, y: 0,
+	molassesStart: { x: 29, y: 0 },
+    },
 ];
 
 const entities = [];
@@ -60,7 +66,7 @@ function GameState() {
 const gameState = GameState();
 
 var populateMapState = PopulateMapState();
-var buildState = BuildState(60);
+var buildState = BuildState(6);
 var molassesState = MolassesState(10);
 
 function jtrace(obj, pretty) {
@@ -75,8 +81,9 @@ function PopulateMapState() {
     var self = { popMapState: true };
 
     self.onEnter = function() {
+	const map = maps[globals.mapId];
 	copyMap(globals.mapId);
-	mset(29, 0, TILE_MOLASSES);
+	mset(map.molassesStart.x, map.molassesStart.y, TILE_MOLASSES);
 	self.createSurvivors();
     };
 
@@ -95,25 +102,22 @@ function PopulateMapState() {
 
 	    forAllEntities(function(entityX, entityY, entity) {
 		const dist = Math.sqrt(Math.pow(entityX - x, 2) + Math.pow(entityY - y, 2));
-		if (dist < 5) tooClose = true;
+		if (dist < 3) tooClose = true;
 	    }, 'SURVIVOR');
 
 	    if (tooClose) continue;
 
-	    entities[y * 30 + x] = {
+	    setEntity(x, y, {
 		type: 'SURVIVOR',
 		sprite: SPRITE_SURVIVOR,
-	    };
+	    });
 	    numSurvivors--;
 	}
-
-	forAllEntities(function(x, y, e) {
-	    jtrace({x, y, e});
-	});
     };
 
     self.update = function() {
 	gameState.transition(new TransitionState(60, 'get buildin\'', buildState));
+	//gameState.transition(molassesState);
     };
 
     return self;
@@ -121,7 +125,7 @@ function PopulateMapState() {
 
 function TransitionState(time, message, nextState) {
     var self = {
-	time: time,
+	time,
 	message: message,
     };
 
@@ -144,18 +148,23 @@ function TransitionState(time, message, nextState) {
     return self;
 }
 
-function BuildState(piecesToPlace) {
+function BuildState(piecesToPlace, time) {
     var self = {
 	currentPiece: null,
 	piecesRemaining: piecesToPlace,
 	placementTimer: 0,
 	filled: [],
 	rotation: 0,
+	timeLeft: time,
     };
 
     const shadowColour = 15;
     const invalidShadowColour = 6;
     const flashShadowColour = 14;
+
+    self.onEnter = function() {
+	self.floodFill();
+    };
 
     self.getRandomPiece = function() {
 	const numberOfPieces = (240 - MAP_PIECE_START) / MAP_PIECE_WIDTH;
@@ -176,13 +185,13 @@ function BuildState(piecesToPlace) {
 		const mx = coords.x + piece.sx/8;
 		const my = coords.y + piece.sy/8;
 		const mapTile = mget(mx, my);
-		const entity = entities[my * 30 + mx];
+		const entity = getEntity(mx, my);
 
 		if (tile > 0) {
 		    if (mapTile != TILE_GRASS
 			|| (entity && entity.type !== 'DROPLET')
-			|| mx < 1 || mx >= 29
-			|| my < 1 || my >= 16
+			|| mx < 0 || mx > 29
+			|| my < 0 || my > 16
 		    ) {
 			return false;
 		    }
@@ -193,9 +202,9 @@ function BuildState(piecesToPlace) {
     };
 
     self.checkFloodTile = function(x,  y) {
-	return x >= 0 && x < 30
-	    && y >= 0 && y < 17
-	    && (mget(x, y) <= TILE_SOLID || mget(x, y) === TILE_MOLASSES)
+	return x >= -1 && x <= 30
+	    && y >= -1 && y <= 17
+	    && (mget(x, y) != TILE_WALL)
 	    && !(self.filled[y * 30 + x]);
     };
 
@@ -243,8 +252,8 @@ function BuildState(piecesToPlace) {
 		    const mx = coords.x + piece.sx/8;
 		    const my = coords.y + piece.sy/8;
 		    mset(mx, my, tile);
-		    if (entities[my * 30 + mx]) {
-			entities[my * 30 + mx] = null;
+		    if (getEntity(mx, my)) {
+			setEntity(mx, my, null);
 		    }
 		}
 	    }
@@ -255,7 +264,7 @@ function BuildState(piecesToPlace) {
 	self.rotation = (self.rotation + 90) % 360;
     }
 
-    self.getRotatedCoords = function(x, y, sx, sy) {
+    self.getRotatedCoords = function(x, y, tx, ty) {
 	var rotationMatrix = [1, 0, 0, 1]
 	switch (self.rotation) {
 	    case  90: rotationMatrix = [0, 1, -1, 0]; break;
@@ -263,11 +272,17 @@ function BuildState(piecesToPlace) {
 	    case 270: rotationMatrix = [0, -1, 1, 0]; break;
 	};
 
-	const xOffset = (MAP_PIECE_WIDTH/2) * ((rotationMatrix[0] + rotationMatrix[1]) - 1);
-	const yOffset = (MAP_PIECE_HEIGHT/2) * ((rotationMatrix[2] + rotationMatrix[3]) - 1);
-
 	const newX = (x * rotationMatrix[0] + y * rotationMatrix[1]) - xOffset;
 	const newY = (x * rotationMatrix[2] + y * rotationMatrix[3]) - yOffset;
+
+	return {
+	    x: newX,
+	    y: newY,
+	};
+
+	/*
+	const xOffset = ((rotationMatrix[0] + rotationMatrix[1]) - 1);
+	const yOffset = ((rotationMatrix[2] + rotationMatrix[3]) - 1);
 
 	return {
 	    x: newX,
@@ -275,6 +290,7 @@ function BuildState(piecesToPlace) {
 	    sx: newX * 8 + sx,
 	    sy: newY * 8 + sy,
 	};
+	*/
     }
 
     self.update = function() {
@@ -289,12 +305,16 @@ function BuildState(piecesToPlace) {
 	}
 
 	const m = mouse();
+	self.currentPiece.tx = Math.floor(m[0] / 8);
+	self.currentPiece.ty = Math.floor(m[1] / 8);
+	/*
 	self.currentPiece.sx = m[0] - MAP_PIECE_WIDTH * 4;
 	self.currentPiece.sy = m[1] - MAP_PIECE_HEIGHT * 4;
 
 	// snap
 	self.currentPiece.sx -= self.currentPiece.sx % 8;
 	self.currentPiece.sy -= self.currentPiece.sy % 8;
+	*/
 
 	self.validPlacement = self.checkValidPlacement();
 	if (time() > self.placementTimer) {
@@ -326,8 +346,8 @@ function BuildState(piecesToPlace) {
 		    } else {
 			c = shadowColour;
 		    }
-		    const coords = self.getRotatedCoords(x, y, piece.sx, piece.sy);
-		    rectb(coords.sx, coords.sy, 8, 8, c);
+		    const coords = self.getRotatedCoords(x, y);
+		    //rectb(coords.sx, coords.sy, 8, 8, c);
 		}
 	    }
 	}
@@ -369,7 +389,7 @@ function MolassesState(updates) {
 	self.updates = updates;
 	forAllEntities(function(x, y, entity) {
 	    if (entity.type === 'DROPLET') {
-		entities[y * 30 + x] = null;
+		setEntity(x, y, null);
 		mset(x, y, TILE_MOLASSES);
 	    }
 	});
@@ -388,10 +408,10 @@ function MolassesState(updates) {
 	    }
 
 	    if (tm > drop.time && mget(px, py) !== TILE_FLOOR) {
-		entities[drop.target.x/8][drop.target.y/8] = {
+		setEntity(drop.target.x/8, drop.target.y/8, {
 		    type: 'DROPLET',
 		    sprite: SPRITE_DROPLET,
-		};
+		});
 		return false;
 	    }
 	    const t = (tm - drop.startTime) / (drop.time - drop.startTime);
@@ -403,16 +423,29 @@ function MolassesState(updates) {
 
     self.isValidDropletPlacement = function(x, y) {
 	const tile = mget(x, y);
-	const isValidTile = !(tile === TILE_MOLASSES)
 	const isWithinBounds = x >= 0 && y >= 0 && x < 30 && y < 17;
-	return isValidTile && isWithinBounds;
+	return !self.isMolasses(x, y) && isWithinBounds;
     };
+
+    self.isMolasses = function(x, y) {
+	const tile = mget(x, y);
+	return tile === TILE_MOLASSES || tile === TILE_INERT_MOLASSES;
+    }
 
     self.spread = function() {
 	for (var x = 0; x < 30; x++) {
 	    for (var y = 0; y < 30; y++) {
 		if (mget(x, y) != TILE_MOLASSES) continue;
 		if (Math.random() > 0.5) continue;
+
+		if ((x > 0 && self.isMolasses(x-1, y))
+		    && (x < 30 && self.isMolasses(x+1, y))
+		    && (y > 0 && self.isMolasses(x, y-1))
+		    && (y < 17 && self.isMolasses(x, y+1))) {
+		    // this tile is entirely surrounded
+		    mset(x, y, TILE_INERT_MOLASSES);
+		    continue;
+		}
 
 		const direction = Math.floor(Math.random() * 4);
 		var nextX;
@@ -427,6 +460,10 @@ function MolassesState(updates) {
 
 		if (mget(nextX, nextY) <= TILE_SOLID) {
 		    mset(nextX, nextY, TILE_MOLASSES);
+		    const entity = getEntity(nextX, nextY);
+		    if (entity && entity.type === 'DROPLET') {
+			setEntity(nextX, nextY, null);
+		    }
 		}
 
 		var dropletChance = 0.15;
@@ -456,6 +493,45 @@ function MolassesState(updates) {
 	}
     };
 
+    self.moveSurvivors = function() {
+	// move away from the molasses, but it could spread randomly
+	// so i somehow need to figure out what direction they should
+	// run in then do a weighted random chance of them actually
+	// running in that x/y direction
+
+	// or they could just search nearby and run away if it's close?
+	const molassesStart = maps[globals.mapId];
+	forAllEntities(function(x, y, entity) {
+	    const rx = Math.random();
+	    const ry = Math.random();
+
+	    var nextX;
+	    if (rx > 0.75) {
+		// run away
+		nextX = x + (molassesStart.x > x ? -1 : 1);
+	    } else {
+		nextX = x + Math.floor(rx * 3) - 1;
+	    }
+
+	    var nextY;
+	    if (ry > 0.75) {
+		// run away
+		nextY = y + (molassesStart.y > y ? -1 : 1);
+	    } else {
+		nextY = y + Math.floor(ry * 3) - 1;
+	    }
+
+	    const tile = mget(nextX, nextY);
+	    if (!getEntity(nextX, nextY)
+		&& nextX > 0 && nextX < 29
+		&& nextY > 0 && nextY < 16
+		&& (tile === TILE_GRASS || tile === TILE_FLOOR)) {
+		setEntity(x, y, null);
+		setEntity(nextX, nextY, entity);
+	    }
+	}, 'SURVIVOR');
+    };
+
     self.update = function() {
 	if (time() > self.nextUpdate && self.droplets.length === 0) {
 	    if (self.updates === 0) {
@@ -463,6 +539,10 @@ function MolassesState(updates) {
 		return;
 	    }
 	    self.spread();
+	    // FIXME garbage
+	    if (self.updates % 2 === 0) {
+		self.moveSurvivors();
+	    }
 	    self.nextUpdate = time() + 250;
 	    self.updates--;
 	}
@@ -482,6 +562,7 @@ function MolassesState(updates) {
 }
 
 // ---------------------------------------------------
+// MAP
 function copyMap(mapId) {
     const map = maps[mapId];
     for (var i = 0; i < 17; i++) {
@@ -501,16 +582,31 @@ function drawMap() {
     map(0, 0, 30, 17, 0, 0);
 }
 
+// ---------------------------------------------------
+// ENTITIES
 function forAllEntities(fn, filter) {
+    const tm = Math.floor(time());
+
     for (var i = 0; i < 30 * 17; i++) {
 	const x = i % 30;
 	const y = Math.floor(i / 30);
 	if (entities[i]) {
-	    if (!filter || entities[i].type === filter) {
+	    if (entities[i].updated !== tm && (!filter || entities[i].type === filter)) {
 		fn(x, y, entities[i]);
 	    }
 	}
     }
+}
+
+function getEntity(x, y) {
+    return entities[y * 30 + x];
+}
+
+function setEntity(x, y, entity) {
+    if (entity) {
+	entity.updated = Math.floor(time());
+    }
+    entities[y * 30 + x] = entity;
 }
 
 function drawEntities() {
@@ -520,6 +616,7 @@ function drawEntities() {
 }
 
 // ---------------------------------------------------
+// TIC STUFF
 function init() {
     gameState.transition(populateMapState);
 }
