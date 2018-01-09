@@ -1,7 +1,10 @@
 * Work log
 ** General time
    :LOGBOOK:
-   CLOCK: [2018-01-07 Sun 19:36]
+   CLOCK: [2018-01-08 Mon 22:10]
+   CLOCK: [2018-01-08 Mon 19:20]--[2018-01-08 Mon 21:03] =>  1:43
+   CLOCK: [2018-01-08 Mon 18:35]--[2018-01-08 Mon 18:54] =>  0:19
+   CLOCK: [2018-01-07 Sun 19:36]--[2018-01-07 Sun 20:35] =>  0:59
    CLOCK: [2018-01-07 Sun 16:52]--[2018-01-07 Sun 19:00] =>  2:08
    CLOCK: [2018-01-07 Sun 14:06]--[2018-01-07 Sun 14:56] =>  0:50
    CLOCK: [2018-01-05 Fri 20:12]--[2018-01-06 Sat 01:12] =>  5:00
@@ -9,18 +12,29 @@
 
 
 * Todo
-** TODO rotation
-** TODO fizzle droplets in enclosed areas
-** TODO some kinda explosion when droplets hit walls
-** TODO fix droplets being able to land on molasses
-** TODO people to rescue
-** TODO defenses
-** DONE shuffle the pieces
-** DONE get one following the mouse with snapping n stuff
-** DONE drop delay
-** DONE molasses!! - done for now..
-** DONE 1 tile border around the edge to stop game breaking stuff
-** DONE droplets
+** Features
+*** TODO people to rescue
+*** TODO fizzle droplets in enclosed areas
+    wait droplets can't land on enclosed areas, or are we saying if
+    one droplet breaks a wall then another goes through the gap and
+    hits a floor tile it fizzles?
+    
+    ok i think this is done?
+*** TODO it's hard to tell that diagonals aren't connected
+*** TODO some kinda explosion when droplets hit walls
+*** TODO defenses
+** Bugs
+*** TODO fix droplets being able to land on molasses
+*** TODO can't build in enclosed areas
+** Done
+*** DONE rotation
+*** DONE if you spam click you can build more walls than you should be able to
+*** DONE shuffle the pieces
+*** DONE get one following the mouse with snapping n stuff
+*** DONE drop delay
+*** DONE molasses!! - done for now..
+*** DONE 1 tile border around the edge to stop game breaking stuff
+*** DONE droplets
 
 * Ideas etc
 ** The Great Molasses Flood
