@@ -1,4 +1,3 @@
-// input: mouse
 // script: js
 
 const MAP_SCRATCH_X = 210;
@@ -18,9 +17,9 @@ const TILE_INERT_MOLASSES = 6;
 
 const TYPE_FLOOR = 100;
 const TYPE_WALL = 101;
-const TYPE_ENCLOSED = 101;
-const TYPE_MOLASSES = 102;
-const TYPE_SPREADABLE = 103;
+const TYPE_ENCLOSED = 102;
+const TYPE_MOLASSES = 103;
+const TYPE_SPREADABLE = 104;
 
 const tileTypes = {};
 tileTypes[TILE_GRASS]          = TYPE_FLOOR;
@@ -50,6 +49,7 @@ for (var i = 0; i < 30 * 17; i++) {
 
 var globals = {
     mapId: 0,
+    paused: false,
 };
 
 function GameState() {
@@ -82,8 +82,8 @@ function GameState() {
 const gameState = GameState();
 
 var populateMapState = PopulateMapState();
-var buildState = BuildState(60);
-var molassesState = MolassesState(20);
+var buildState = BuildState(60, 15);
+var molassesState = MolassesState(10);
 
 function jtrace(obj, pretty) {
     if (pretty) {
@@ -133,7 +133,7 @@ function PopulateMapState() {
 
     self.update = function() {
         gameState.transition(new TransitionState(60, 'get buildin\'', buildState));
-        //gameState.transition(molassesState);
+        // gameState.transition(molassesState);
     };
 
     return self;
@@ -164,7 +164,7 @@ function TransitionState(delay, message, nextState) {
     return self;
 }
 
-function BuildState(piecesToPlace) {
+function BuildState(piecesToPlace, timeToPlace) {
     var self = {
         hasPiece: false,
         piecesRemaining: piecesToPlace,
@@ -173,16 +173,18 @@ function BuildState(piecesToPlace) {
         rotation: 0,
         mouseTileX: 0,
         mouseTileY: 0,
+        endTime: 0,
     };
 
     const shadowColour = 15;
     const invalidShadowColour = 6;
-    const flashShadowColour = 14;
+    const flashShadowColour = 12;
 
     const filledWidth = 32;
     const filledHeight = 19;
 
     self.onEnter = function() {
+        self.endTime = time() + timeToPlace * 1000;
         self.floodFill();
     };
 
@@ -207,7 +209,7 @@ function BuildState(piecesToPlace) {
                 const entity = getEntity(mx, my);
 
                 if (tile > 0) {
-                    if (tileTypes[mapTile] != TYPE_FLOOR
+                    if ((tileTypes[mapTile] != TYPE_FLOOR && tileTypes[mapTile] !== TYPE_ENCLOSED)
                         || (entity && entity.type !== 'DROPLET')
                         || mx < 0 || mx > 29
                         || my < 0 || my > 16
@@ -220,51 +222,9 @@ function BuildState(piecesToPlace) {
         return true;
     };
 
-    /*
-    self.checkFloodTile = function(x,  y) {
-        if (x == -1 || x == 30 || y == -1 || y == 17) {
-            return true;
-        }
-
-        if (x < -1 || x > 30 || y < -1 || y > 17) {
-            return false;
-        }
-
-        return (tileTypes[mget(x, y)] != TYPE_WALL)
-            && !(self.filled[y * 30 + x]);
-    };
-
-    self.floodFill8Recursive = function(x, y) {
-        jtrace({ x, y });
-        if (self.checkFloodTile(x, y)) {
-            self.filled[y * 30 + x] = true;
-
-            if (x < 30 && x > -1) {
-                self.floodFill8Recursive(x + 1, y);
-                self.floodFill8Recursive(x - 1, y);
-            }
-
-            if (y < 17 && y > -1)
-            if (y < 17) self.floodFill8Recursive(x, y + 1);
-            if (y > -1)  self.floodFill8Recursive(x, y - 1);
-            if (x < 30 && y < 17) self.floodFill8Recursive(x + 1, y + 1);
-            if (x > -1 && y > -1) self.floodFill8Recursive(x - 1, y - 1);
-            if (x > -1 && y < 17) self.floodFill8Recursive(x - 1, y + 1);
-            if (x < 30 && y > -1) self.floodFill8Recursive(x + 1, y - 1);
-        }
-    };
-    */
-
     self.checkFloodTile = function(inX,  inY) {
         const x = inX - 1;
         const y = inY - 1;
-
-        // if ((inX == 0 && inY < 19)
-        //     || (inX == 31 && inY < 19)
-        //     || (inY == 0 && inX < 31)
-        //     || (inY == 18 && inX < 31)) {
-        //     return !(self.filled[inY * filledWidth + inX]);
-        // }
 
         return inX >= 0 && inX <= 32
             && inY >= 0 && inY <= 19
@@ -273,7 +233,6 @@ function BuildState(piecesToPlace) {
     };
 
     self.floodFill8Recursive = function(x, y, visited) {
-        jtrace({ x, y });
         if (visited[y * filledWidth + x]) return;
 
         const check = self.checkFloodTile(x, y);
@@ -357,15 +316,15 @@ function BuildState(piecesToPlace) {
     }
 
     self.update = function() {
+        if (time() > self.endTime) {// || (self.piecesRemaining <= 0 && time() > self.placementTimer)) {
+            gameState.transition(new TransitionState(120, 'here come the molasses', molassesState));
+            self.piecesRemaining = piecesToPlace;
+        }
+
         if (!self.hasPiece) {
             self.getRandomPiece();
             self.hasPiece = true;
             self.rotation = 0;
-        }
-
-        if (self.piecesRemaining <= 0 && time() > self.placementTimer) {
-            gameState.transition(new TransitionState(120, 'here come the molasses', molassesState));
-            self.piecesRemaining = piecesToPlace;
         }
 
         const m = mouse();
@@ -395,7 +354,7 @@ function BuildState(piecesToPlace) {
                     var c = shadowColour;
                     if (!self.validPlacement) {
                         c = invalidShadowColour;
-                    } else if (self.piecesRemaining === 1) {
+                    } else if (self.endTime - time() < 5000) {
                         c = time() % 250 < 125 ? shadowColour : flashShadowColour;
                     } else {
                         c = shadowColour;
@@ -416,16 +375,21 @@ function BuildState(piecesToPlace) {
         }
     };
 
+    self.drawTime = function() {
+        const tm = ((self.endTime - time()) / 1000).toFixed(0);
+        print(tm, 10, 0, 15, 1, 2);
+    };
+
     self.draw = function() {
         drawMap();
         drawEntities();
 
-        self.drawFlood();
         if (self.hasPiece && self.piecesRemaining > 0) {
             self.drawShadow();
         }
-        // print(self.piecesRemaining);
-        // print(self.rotation, 0, 8);
+        self.drawTime();
+        //print(self.piecesRemaining);
+        //print(self.rotation, 0, 8);
     };
 
     return self;
@@ -540,6 +504,8 @@ function MolassesState(updates) {
                     const entity = getEntity(nextX, nextY);
                     if (entity && entity.type === 'DROPLET') {
                         setEntity(nextX, nextY, null);
+                    } else if (entity && entity.type === 'SURVIVOR') {
+                        setEntity(nextX, nextY, null);
                     }
                 }
 
@@ -576,6 +542,14 @@ function MolassesState(updates) {
         }
     };
 
+    self.isValidSurvivorMove = function(x, y) {
+        const tile = mget(x, y);
+        return !getEntity(x, y)
+            && x > 0 && x < 29
+            && y > 0 && y < 16
+            && (tileTypes[tile] === TYPE_FLOOR || tileTypes[tile] === TYPE_ENCLOSED);
+    };
+
     self.moveSurvivors = function() {
         // move away from the molasses, but it could spread randomly
         // so i somehow need to figure out what direction they should
@@ -584,31 +558,79 @@ function MolassesState(updates) {
 
         // or they could just search nearby and run away if it's close?
         const molassesStart = maps[globals.mapId];
+
         forAllEntities(function(x, y, entity) {
-            const rx = Math.random();
-            const ry = Math.random();
+            const tile = mget(x, y);
+            var nextX = x;
+            var nextY = y;
 
-            var nextX;
-            if (rx > 0.75) {
-                // run away
-                nextX = x + (molassesStart.x > x ? -1 : 1);
+            if (tileTypes[tile] === TYPE_ENCLOSED) {
+                var shouldFindTarget = true;
+                jtrace({ entity, x, y }, true);
+                // when a survivor is in an enclosed area, they pick a
+                // cracked wall and run towards it
+                // this is probably a bad idea
+                if (entity.target) {
+                    trace('have target');
+                    if (mget(entity.target.x, entity.target.y) === TILE_WALL_CRACKED) {
+                        trace('target is cracked wall');
+                        const dist = Math.sqrt(Math.pow(entity.target.x - x, 2) + Math.pow(entity.target.y - y, 2));
+                        trace('dist: ' + dist.toString());
+                        if (dist <= 2) {
+                            trace('repairing');
+                            // repair
+                            mset(entity.target.x, entity.target.y, TILE_WALL);
+                        } else {
+                            trace('moving to');
+                            nextX = x + (entity.target.x > x ? 1 : -1);
+                            nextY = y + (entity.target.y > y ? 1 : -1);
+                            shouldFindTarget = false;
+                        }
+                    }
+                }
+
+                if (shouldFindTarget) {
+                    trace('finding new target');
+                    var count = 0;
+                    var target = null;
+
+                    for (var x = 0; x < 30; x++) {
+                        for (var y = 0; y < 17; y++) {
+                            const tile = mget(x, y);
+
+                            if (tile === TILE_WALL_CRACKED) {
+                                count++;
+                                if (Math.floor(Math.random() * count) === 0) {
+                                    target = { x, y };
+                                }
+                            }
+
+                        }
+                    }
+
+                    entity.target = target;
+                }
+                trace('---------');
             } else {
-                nextX = x + Math.floor(rx * 3) - 1;
+                const rx = Math.random();
+                const ry = Math.random();
+
+                if (rx > 0.75) {
+                    // run away
+                    nextX = x + (molassesStart.x > x ? -1 : 1);
+                } else {
+                    nextX = x + Math.floor(rx * 3) - 1;
+                }
+
+                if (ry > 0.75) {
+                    // run away
+                    nextY = y + (molassesStart.y > y ? -1 : 1);
+                } else {
+                    nextY = y + Math.floor(ry * 3) - 1;
+                }
             }
 
-            var nextY;
-            if (ry > 0.75) {
-                // run away
-                nextY = y + (molassesStart.y > y ? -1 : 1);
-            } else {
-                nextY = y + Math.floor(ry * 3) - 1;
-            }
-
-            const tile = mget(nextX, nextY);
-            if (!getEntity(nextX, nextY)
-                && nextX > 0 && nextX < 29
-                && nextY > 0 && nextY < 16
-                && (tileTypes[tile] === TYPE_FLOOR)) {
+            if (self.isValidSurvivorMove(nextX, nextY)) {
                 setEntity(x, y, null);
                 setEntity(nextX, nextY, entity);
             }
@@ -717,8 +739,14 @@ function draw() {
 
 function TIC() {
     try {
-        update();
-        draw();
+        if (btnp(4)) {
+            globals.paused = !globals.paused;
+        }
+
+        if (!globals.paused) {
+            update();
+            draw();
+        }
     } catch (e) {
         // thanks tic-80
         trace(e.lineNumber + ': ' + e);
