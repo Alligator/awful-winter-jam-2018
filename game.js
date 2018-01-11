@@ -170,6 +170,7 @@ function BuildState(piecesToPlace, timeToPlace) {
         piecesRemaining: piecesToPlace,
         placementTimer: 0,
         filled: [],
+        visited: {},
         rotation: 0,
         mouseTileX: 0,
         mouseTileY: 0,
@@ -222,34 +223,39 @@ function BuildState(piecesToPlace, timeToPlace) {
         return true;
     };
 
-    self.checkFloodTile = function(inX,  inY) {
-        const x = inX - 1;
-        const y = inY - 1;
-
-        return inX >= 0 && inX <= 32
-            && inY >= 0 && inY <= 19
-            && (tileTypes[mget(x, y)] != TYPE_WALL)
-            && !(self.filled[inY * filledWidth + inX]);
+    self.checkFloodTile = function(x,  y) {
+        if (x == 0 || x == 31 || y == 0 || y == 18) {
+            return true;
+        }
+        
+        return tileTypes[mget(x-1, y-1)] != TYPE_WALL;
     };
 
     self.floodFill8Recursive = function(x, y, visited) {
-        if (visited[y * filledWidth + x]) return;
-
-        const check = self.checkFloodTile(x, y);
-        visited[y * filledWidth + x] = true;
-
-        if (check) {
-            self.filled[y * filledWidth + x] = true;
-
-            self.floodFill8Recursive(x + 1, y, visited);
-            self.floodFill8Recursive(x - 1, y, visited);
-            self.floodFill8Recursive(x, y + 1, visited);
-            self.floodFill8Recursive(x, y - 1, visited);
-            self.floodFill8Recursive(x + 1, y + 1, visited);
-            self.floodFill8Recursive(x - 1, y - 1, visited);
-            self.floodFill8Recursive(x - 1, y + 1, visited);
-            self.floodFill8Recursive(x + 1, y - 1, visited);
+        if ( x < 0 || x > 31 || y < 0 || y > 18) {
+            return;
         }
+
+        if (self.visited[y * 32 + x]) {
+            return;
+        }
+
+        self.visited[y * 32 + x] = true;
+
+        if (!self.checkFloodTile(x, y)) {
+            return
+        }
+
+        self.filled[y * 32 + x] = true;
+
+        self.floodFill8Recursive(x + 1, y);
+        self.floodFill8Recursive(x - 1, y);
+        self.floodFill8Recursive(x, y + 1);
+        self.floodFill8Recursive(x, y - 1);
+        self.floodFill8Recursive(x + 1, y + 1);
+        self.floodFill8Recursive(x - 1, y - 1);
+        self.floodFill8Recursive(x - 1, y + 1);
+        self.floodFill8Recursive(x + 1, y - 1);
     };
 
     self.getFilled = function(x, y) {
@@ -261,7 +267,7 @@ function BuildState(piecesToPlace, timeToPlace) {
             for (var y = 0; y < 17; y++) {
                 if (!self.getFilled(x, y) && tileTypes[mget(x, y)] !== TYPE_WALL) {
                     mset(x, y, TILE_FLOOR);
-                } else if (tileTypes[mget(x, y)] === TYPE_FLOOR) {
+                } else if (tileTypes[mget(x, y)] === TYPE_ENCLOSED) {
                     resetMapTile(globals.mapId, x, y);
                 }
             }
@@ -269,6 +275,7 @@ function BuildState(piecesToPlace, timeToPlace) {
     };
 
     self.floodFill = function() {
+        self.visited = {};
         self.filled = new Array(filledWidth * filledHeight);
         self.floodFill8Recursive(0, 0, []);
         self.setMapFromFloodFill();
@@ -366,12 +373,9 @@ function BuildState(piecesToPlace, timeToPlace) {
     };
 
     self.drawFlood = function() {
-        for (var x = 0; x < 30; x++) {
-            for (var y = 0; y < 17; y++) {
-                if (self.getFilled(x, y)) {
-                    rectb(x * 8, y * 8, 8, 8, 13);
-                }
-            }
+        var len = self.filled.length
+        for (var i = 0; i < self.filled.length; i++) {
+            pix(44 + (i % 32), 44 + Math.floor(i / 32), self.filled[i] === true ? 13 : 3);
         }
     };
 
@@ -388,6 +392,8 @@ function BuildState(piecesToPlace, timeToPlace) {
             self.drawShadow();
         }
         self.drawTime();
+
+        self.drawFlood();
         //print(self.piecesRemaining);
         //print(self.rotation, 0, 8);
     };
