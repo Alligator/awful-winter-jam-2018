@@ -6,39 +6,50 @@ const MAP_PIECE_START = 225;
 const MAP_PIECE_WIDTH = 3;
 const MAP_PIECE_HEIGHT = 3;
 
-const TILE_GRASS = 1;
+const TILE_GROUND_MIN = 16;
+const TILE_GROUND_MAX = 31;
 const TILE_WATER = 2;
 const TILE_FLOOR = 9;
-
 const TILE_WALL = 3;
-const TILE_WALL_CRACKED = TILE_WALL + 1;
-const TILE_MOLASSES = 5;
-const TILE_INERT_MOLASSES = 6;
+const TILE_WALL_CRACKED = TILE_WALL + 2;
+const TILE_INERT_MOLASSES = 80;
+const TILE_MOLASSES = 81;
+const TILE_MOLASSES_MIN = 80;
+const TILE_MOLASSES_MAX = 81;
 
-const TYPE_FLOOR = 100;
-const TYPE_WALL = 101;
-const TYPE_ENCLOSED = 102;
-const TYPE_MOLASSES = 103;
-const TYPE_SPREADABLE = 104;
+const FLAG_BUILDABLE = 1;
+const FLAG_SPREADABLE = 2;
+const FLAG_MOLASSES = 4;
+const FLAG_WALL = 8;
 
-const tileTypes = {};
-tileTypes[TILE_GRASS]          = TYPE_FLOOR;
-tileTypes[TILE_WATER]          = TYPE_SPREADABLE;
-tileTypes[TILE_FLOOR]          = TYPE_ENCLOSED;
+function tileHasFlag(tile, type) {
+    var result = 0;
 
-tileTypes[TILE_WALL]           = TYPE_WALL;
-tileTypes[TILE_WALL_CRACKED]   = TYPE_WALL;
+    if (tile === TILE_WATER) {
+        result |= FLAG_SPREADABLE;
+    }
 
-tileTypes[TILE_MOLASSES]       = TYPE_MOLASSES;
-tileTypes[TILE_INERT_MOLASSES] = TYPE_MOLASSES;
+    if ((tile >= TILE_GROUND_MIN && tile <= TILE_GROUND_MAX)
+       || tile === TILE_FLOOR) {
+        result |= FLAG_BUILDABLE | FLAG_SPREADABLE;
+    } else if (tile >= TILE_WALL && tile <= TILE_WALL_CRACKED) {
+        result |= FLAG_WALL;
+    } else if (tile >= TILE_MOLASSES_MIN && tile <= TILE_MOLASSES_MAX) {
+        result |= FLAG_MOLASSES;
+    }
 
-const SPRITE_DROPLET = 17;
-const SPRITE_SURVIVOR = 18;
+    return (result & type) > 0;
+}
+
+const SPRITE_DROPLET = 256;
+const SPRITE_SURVIVOR = 257;
 
 const maps = [
     {
+        x: 60, y: 0,
+    },
+    {
         x: 30, y: 0,
-        molassesStart: { x: 29, y: 0 },
     },
 ];
 
@@ -50,11 +61,16 @@ for (var i = 0; i < 30 * 17; i++) {
 var globals = {
     mapId: 0,
     paused: false,
+    filled: new Array(30 * 17),
 };
 
 function GameState() {
     var self = {
         currentState: {},
+        populateMapState: PopulateMapState(),
+        buildState: BuildState(60, 35),
+        molassesState: MolassesState(15),
+        roundEndState: RoundEndState(),
     };
 
     self.transition = function(newState) {
@@ -65,25 +81,28 @@ function GameState() {
 
     self.update = function() {
         return self.maybeCall(self.currentState.update);
-    }
+    };
     self.draw = function() {
         return self.maybeCall(self.currentState.draw);
-    }
+    };
 
     self.maybeCall = function(maybeFunction) {
         if (typeof maybeFunction === 'function') {
             return maybeFunction();
         }
-    }
+    };
+
+    self.reset = function() {
+        // TODO hell naw
+        self.populateMapState = PopulateMapState();
+        self.buildState = BuildState(60, 15),
+        self.molassesState = MolassesState(15);
+    };
     
     return self;
 };
 
 const gameState = GameState();
-
-var populateMapState = PopulateMapState();
-var buildState = BuildState(60, 15);
-var molassesState = MolassesState(10);
 
 function jtrace(obj, pretty) {
     if (pretty) {
@@ -99,7 +118,7 @@ function PopulateMapState() {
     self.onEnter = function() {
         const map = maps[globals.mapId];
         copyMap(globals.mapId);
-        mset(map.molassesStart.x, map.molassesStart.y, TILE_MOLASSES);
+        //h imset(map.molassesStart.x, map.molassesStart.y, TILE_MOLASSES);
         self.createSurvivors();
     };
 
@@ -107,12 +126,14 @@ function PopulateMapState() {
         const cooldown = 0;
         const range = 30;
         var numSurvivors = 10;
+        // TODO manually place survivors and just count them here?
+        globals.initialSurviors = 10;
 
         while (numSurvivors) {
             const x = Math.floor(Math.random() * 30);
             const y = Math.floor(Math.random() * 30);
 
-            if (x <= 0 || x >= 29 || y <= 0 || y >= 16 || tileTypes[mget(x, y)] !== TYPE_FLOOR) continue;
+            if (x <= 0 || x >= 29 || y <= 0 || y >= 16 || !tileHasFlag(mget(x, y), FLAG_BUILDABLE)) continue;
 
             var tooClose = false;
 
@@ -132,7 +153,7 @@ function PopulateMapState() {
     };
 
     self.update = function() {
-        gameState.transition(new TransitionState(60, 'get buildin\'', buildState));
+        gameState.transition(new TransitionState(60, 'get buildin\'', gameState.buildState));
         // gameState.transition(molassesState);
     };
 
@@ -184,6 +205,8 @@ function BuildState(piecesToPlace, timeToPlace) {
     const filledWidth = 32;
     const filledHeight = 19;
 
+    const placementDelay = 500;
+
     self.onEnter = function() {
         self.endTime = time() + timeToPlace * 1000;
         self.floodFill();
@@ -210,7 +233,7 @@ function BuildState(piecesToPlace, timeToPlace) {
                 const entity = getEntity(mx, my);
 
                 if (tile > 0) {
-                    if ((tileTypes[mapTile] != TYPE_FLOOR && tileTypes[mapTile] !== TYPE_ENCLOSED)
+                    if (!tileHasFlag(mapTile, FLAG_BUILDABLE)
                         || (entity && entity.type !== 'DROPLET')
                         || mx < 0 || mx > 29
                         || my < 0 || my > 16
@@ -227,8 +250,7 @@ function BuildState(piecesToPlace, timeToPlace) {
         if (x == 0 || x == 31 || y == 0 || y == 18) {
             return true;
         }
-        
-        return tileTypes[mget(x-1, y-1)] != TYPE_WALL;
+        return !tileHasFlag(mget(x-1, y-1), FLAG_WALL);
     };
 
     self.floodFill8Recursive = function(x, y, visited) {
@@ -243,7 +265,7 @@ function BuildState(piecesToPlace, timeToPlace) {
         self.visited[y * 32 + x] = true;
 
         if (!self.checkFloodTile(x, y)) {
-            return
+            return;
         }
 
         self.filled[y * 32 + x] = true;
@@ -263,11 +285,12 @@ function BuildState(piecesToPlace, timeToPlace) {
     };
 
     self.setMapFromFloodFill = function() {
+        const tilesToSet = [];
         for (var x = 0; x < 30; x++) {
             for (var y = 0; y < 17; y++) {
-                if (!self.getFilled(x, y) && tileTypes[mget(x, y)] !== TYPE_WALL) {
+                if (!self.getFilled(x, y) && !tileHasFlag(mget(x, y), FLAG_WALL)) {
                     mset(x, y, TILE_FLOOR);
-                } else if (tileTypes[mget(x, y)] === TYPE_ENCLOSED) {
+                } else if (mget(x, y) === TILE_FLOOR) {
                     resetMapTile(globals.mapId, x, y);
                 }
             }
@@ -324,7 +347,7 @@ function BuildState(piecesToPlace, timeToPlace) {
 
     self.update = function() {
         if (time() > self.endTime) {// || (self.piecesRemaining <= 0 && time() > self.placementTimer)) {
-            gameState.transition(new TransitionState(120, 'here come the molasses', molassesState));
+            gameState.transition(new TransitionState(60, 'here come the molasses', gameState.molassesState));
             self.piecesRemaining = piecesToPlace;
         }
 
@@ -344,11 +367,11 @@ function BuildState(piecesToPlace, timeToPlace) {
                 self.placeCurrentPiece()
                 self.hasPiece = false;
                 self.piecesRemaining--;
-                self.placementTimer = time() + 200;
+                self.placementTimer = time() + placementDelay;
                 self.floodFill();
             } else if (m[4]) {
                 self.rotate();
-                self.placementTimer = time() + 200;
+                self.placementTimer = time() + placementDelay;
             }
         }
     };
@@ -361,7 +384,7 @@ function BuildState(piecesToPlace, timeToPlace) {
                     var c = shadowColour;
                     if (!self.validPlacement) {
                         c = invalidShadowColour;
-                    } else if (self.endTime - time() < 5000) {
+                    } else if (self.endTime - time() < 2000) {
                         c = time() % 250 < 125 ? shadowColour : flashShadowColour;
                     } else {
                         c = shadowColour;
@@ -392,8 +415,7 @@ function BuildState(piecesToPlace, timeToPlace) {
             self.drawShadow();
         }
         self.drawTime();
-
-        self.drawFlood();
+        //self.drawFlood();
         //print(self.piecesRemaining);
         //print(self.rotation, 0, 8);
     };
@@ -416,7 +438,19 @@ function MolassesState(updates) {
                 mset(x, y, TILE_MOLASSES);
             }
         });
-    }
+    };
+
+    self.onExit = function() {
+        // remove all but the first molasses tiles
+        for (var x = 0; x < 30; x++) {
+            for (var y = 0; y < 30; y++) {
+                const tile = mget(x, y);
+                if (tile > TILE_MOLASSES_MIN && tile <= TILE_MOLASSES_MAX) {
+                    resetMapTile(globals.mapId, x, y);
+                }
+            }
+        }
+    };
 
     self.lerpDroplets = function() {
         const tm = time();
@@ -424,7 +458,7 @@ function MolassesState(updates) {
             const px = Math.floor(drop.pos.x/8);
             const py = Math.ceil(drop.pos.y/8);
 
-            if (tileTypes[mget(px, py)] === TYPE_WALL) {
+            if (tileHasFlag(mget(px, py), FLAG_WALL)) {
                 // destroy the wall and disappear
                 const tile = mget(px, py);
                 const health = tile - TILE_WALL;
@@ -436,7 +470,7 @@ function MolassesState(updates) {
                 return false;
             }
 
-            if (tm > drop.time && tileTypes[mget(px, py)] !== TYPE_FLOOR) {
+            if (tm > drop.time && !tileHasFlag(mget(px, py), FLAG_GROUND)) {
                 setEntity(drop.target.x/8, drop.target.y/8, {
                     type: 'DROPLET',
                     sprite: SPRITE_DROPLET,
@@ -457,8 +491,7 @@ function MolassesState(updates) {
     };
 
     self.isMolasses = function(x, y) {
-        const tile = tileTypes[mget(x, y)];
-        return tile === TYPE_MOLASSES;
+        return tileHasFlag(mget(x, y), FLAG_MOLASSES);
     };
 
     self.isSurrounded = function(x, y) {
@@ -478,7 +511,7 @@ function MolassesState(updates) {
     self.spread = function() {
         for (var x = 0; x < 30; x++) {
             for (var y = 0; y < 30; y++) {
-                if (tileTypes[mget(x, y)] != TYPE_MOLASSES) continue;
+                if (!tileHasFlag(mget(x, y), FLAG_MOLASSES)) continue;
                 if (Math.random() > 0.5) continue;
 
                 if (self.isSurrounded(x, y)) {
@@ -497,8 +530,8 @@ function MolassesState(updates) {
                     case 3: nextX = x;     nextY = y - 1; break;
                 }
 
-                const t = tileTypes[mget(nextX, nextY)];
-                if (t === TYPE_FLOOR || t === TYPE_SPREADABLE) {
+                const tile = mget(nextX, nextY);
+                if (tileHasFlag(tile, FLAG_SPREADABLE)) {
                     mset(nextX, nextY, TILE_MOLASSES);
 
                     self.forNeighbours(x, y, function(nx, ny) {
@@ -516,7 +549,7 @@ function MolassesState(updates) {
                 }
 
                 var dropletChance = 0.15;
-                if (t === TYPE_WALL) {
+                if (tileHasFlag(tile, FLAG_WALL)) {
                     const tile = mget(nextX, nextY);
                     const health = TILE_WALL_CRACKED - tile;
                     if (health > 0) {
@@ -553,7 +586,7 @@ function MolassesState(updates) {
         return !getEntity(x, y)
             && x > 0 && x < 29
             && y > 0 && y < 16
-            && (tileTypes[tile] === TYPE_FLOOR || tileTypes[tile] === TYPE_ENCLOSED);
+            && tileHasFlag(tile, FLAG_BUILDABLE);
     };
 
     self.moveSurvivors = function() {
@@ -570,9 +603,8 @@ function MolassesState(updates) {
             var nextX = x;
             var nextY = y;
 
-            if (tileTypes[tile] === TYPE_ENCLOSED) {
+            if (tile === TILE_FLOOR) {
                 var shouldFindTarget = true;
-                jtrace({ entity, x, y }, true);
                 // when a survivor is in an enclosed area, they pick a
                 // cracked wall and run towards it
                 // this is probably a bad idea
@@ -646,14 +678,14 @@ function MolassesState(updates) {
     self.update = function() {
         if (time() > self.nextUpdate && self.droplets.length === 0) {
             if (self.updates === 0) {
-                gameState.transition(buildState);
+                gameState.transition(gameState.roundEndState);
                 return;
             }
             self.spread();
             // FIXME garbage
-            if (self.updates % 2 === 0) {
-                self.moveSurvivors();
-            }
+            // if (self.updates % 2 === 0) {
+            self.moveSurvivors();
+            // }
             self.nextUpdate = time() + 250;
             self.updates--;
         }
@@ -669,6 +701,102 @@ function MolassesState(updates) {
         });
     };
     
+    return self;
+}
+
+function RoundEndState() {
+    var self = {
+        nextUpdateTime: 0,
+        totalSurvivors: 0,
+        enclosedSurvivors: [],
+        currentSurvivorIndex: 0,
+        won: false,
+        lost: false,
+        finished: false,
+    };
+
+    const winAmount = 0.5;
+    const highlightTime = 800;
+    const highlightColor = 6;
+
+    self.onEnter = function() {
+        gameState.buildState.floodFill();
+
+        self.currentSurvivorIndex = 0;
+        self.finished = false;
+
+        self.countSurvivors();
+        self.nextUpdateTime = time() + highlightTime;
+
+        self.lost = self.totalSurvivors < (globals.initialSurviors * winAmount);
+        self.won = !self.lost && self.enclosedSurvivors.length >= (globals.initialSurviors * winAmount);
+    };
+
+    self.countSurvivors = function() {
+        self.totalSurvivors = 0;
+        self.enclosedSurvivors = [];
+
+        forAllEntities(function(x, y, entity) {
+            if (mget(x, y) === TILE_FLOOR) {
+                self.enclosedSurvivors.push(Object.assign({}, entity, { x, y }));
+            }
+            self.totalSurvivors++;
+        }, 'SURVIVOR');
+    }
+
+    self.update = function() {
+        if (time() < self.nextUpdateTime) return;
+
+        if (self.currentSurvivorIndex < self.enclosedSurvivors.length - 1) {
+            self.currentSurvivorIndex++;
+            self.nextUpdateTime += highlightTime;
+        } else if (self.finished) {
+            // we outta stuff to display
+            if (self.won) {
+                globals.mapId++;
+                gameState.reset();
+                gameState.transition(gameState.populateMapState);
+            } else if (self.lost) {
+                gameState.reset();
+                gameState.transition(gameState.populateMapState);
+            } else {
+                gameState.transition(gameState.buildState);
+            }
+        } else {
+            self.nextUpdateTime += highlightTime * 3;
+            self.finished = true;
+        }
+    };
+
+    self.draw = function() {
+        drawMap();
+        drawEntities();
+        rect(120, 20, 80, 78, 0);
+
+        const survivor = self.enclosedSurvivors[self.currentSurvivorIndex];
+        const color = (time() % 8 < 4) ? highlightColor : 14;
+        const count = self.enclosedSurvivors.length ? (self.currentSurvivorIndex + 1) : 0;
+
+        printCentered(count, 160, 30, color, 0, 2);
+        printCentered('SURVIVORS', 160, 50, 15);
+        printCentered('SAFE', 160, 58, 15);
+
+        if (self.finished) {
+            if (self.won) {
+                printCentered('LETS SCRAM!!', 160, 72, color);
+            } else if (self.lost) {
+                printCentered('they\'re', 160, 72, color);
+                printCentered('all dead.', 160, 80, color);
+            } else {
+                printCentered('NOT ENOUGH!!', 160, 72, color);
+            }
+        }
+
+        if (survivor) {
+            rectb(survivor.x * 8, survivor.y * 8, 8, 8, color);
+        }
+    };
+
     return self;
 }
 
@@ -727,10 +855,16 @@ function drawEntities() {
     });
 }
 
+
+function printCentered(text, x, y, color, fixed, scale) {
+    const width = print(text, -100, 0, 0, fixed, scale);
+    print(text, x - (width/2), y, color, fixed, scale);
+}
+
 // ---------------------------------------------------
 // TIC STUFF
 function init() {
-    gameState.transition(populateMapState);
+    gameState.transition(gameState.populateMapState);
 }
 init()
 

@@ -1,6 +1,7 @@
 * Work log
 ** General time
    :LOGBOOK:
+   CLOCK: [2018-01-11 Thu 19:10]
    CLOCK: [2018-01-10 Wed 20:06]--[2018-01-11 Thu 00:12] =>  4:06
    CLOCK: [2018-01-09 Tue 18:39]--[2018-01-09 Tue 23:41] =>  5:02
    CLOCK: [2018-01-08 Mon 22:10]--[2018-01-09 Tue 01:58] =>  3:48
@@ -12,10 +13,13 @@
    CLOCK: [2018-01-05 Fri 20:12]--[2018-01-06 Sat 01:12] =>  5:00
    :END:
 
-
 * Todo
 ** Features
-*** TODO people to rescue
+*** TODO teleport survivors in enclosed areas to broken walls
+    flood fill to find a broken wall they can actually get to, then
+    teleport 'em there.
+*** TODO flood the map when you win
+    tick the molasses real fast or somethin.
 *** TODO fizzle droplets in enclosed areas
     wait droplets can't land on enclosed areas, or are we saying if
     one droplet breaks a wall then another goes through the gap and
@@ -23,14 +27,18 @@
     
     ok i think this is done?
 *** TODO it's hard to tell that diagonals aren't connected
-*** TODO some kinda explosion when droplets hit walls
-*** TODO defenses
+*** DONE remove non-enclosed molasses at the end of each round 
 ** Bugs
+*** TODO if you enclose molasses in an area you destroy it
+    if the molasses starts in the center you can just remove it by
+    enclosing it. this is harder than it seems because you can have
+    separate enclosed areas and i need to filling only the one with molasses in.
+** Done
+*** DONE people to rescue
 *** DONE fix droplets being able to land on molasses
-*** TODO can't build in enclosed areas
+*** DONE can't build in enclosed areas
     jesus christ my brain is fried i cannot figure out the conditional
     for this.
-** Done
 *** DONE rotation
 *** DONE if you spam click you can build more walls than you should be able to
 *** DONE shuffle the pieces
@@ -40,6 +48,7 @@
 *** DONE 1 tile border around the edge to stop game breaking stuff
 *** DONE droplets
 
+
 * Ideas etc
 ** The Great Molasses Flood
 ** General game flow
@@ -48,8 +57,3 @@
    3. Droplets get launched
    4. Counter-attack
 ** Molasses starts off in one of the corners, spreads according to some simple rules
-** Droplets are fired from the corner where the molasses started
-*** If they land in empty spot, droplets create a new square of molasses
-*** If they land on a wall, they destroy it
-*** If they land in an enclosed space they fizzl
-** Capturing people gives you resources (more pieces to place)
