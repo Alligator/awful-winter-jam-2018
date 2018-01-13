@@ -1,7 +1,8 @@
 * Work log
 ** General time
    :LOGBOOK:
-   CLOCK: [2018-01-11 Thu 19:10]--[2018-01-12 Fri 00:10] =>  5:00
+   CLOCK: [2018-01-12 Fri 20:16]--[2018-01-13 Sat 01:31] =>  5:15
+   CLOCK: [2018-01-11 Thu 19:10]--[2018-01-12 Fri 00:15] =>  5:05
    CLOCK: [2018-01-10 Wed 20:06]--[2018-01-11 Thu 00:12] =>  4:06
    CLOCK: [2018-01-09 Tue 18:39]--[2018-01-09 Tue 23:41] =>  5:02
    CLOCK: [2018-01-08 Mon 22:10]--[2018-01-09 Tue 01:58] =>  3:48
@@ -13,27 +14,30 @@
    CLOCK: [2018-01-05 Fri 20:12]--[2018-01-06 Sat 01:12] =>  5:00
    :END:
 
+
 * Todo
 ** Features
-*** TODO teleport survivors in enclosed areas to broken walls
-    flood fill to find a broken wall they can actually get to, then
-    teleport 'em there.
+*** DONE rally points
 *** TODO flood the map when you win
     tick the molasses real fast or somethin.
-*** TODO fizzle droplets in enclosed areas
-    wait droplets can't land on enclosed areas, or are we saying if
-    one droplet breaks a wall then another goes through the gap and
-    hits a floor tile it fizzles?
-    
-    ok i think this is done?
 *** TODO it's hard to tell that diagonals aren't connected
-*** DONE remove non-enclosed molasses at the end of each round 
+*** TODO placing delay feels a bit nasty
+    it just kinda makes the game feel laggy right now, i think because
+    a) it's slightly too long and b) it also affects the rotation and
+    it probably shouldn't.
 ** Bugs
 *** TODO if you enclose molasses in an area you destroy it
     if the molasses starts in the center you can just remove it by
     enclosing it. this is harder than it seems because you can have
     separate enclosed areas and i need to filling only the one with molasses in.
 ** Done
+*** DONE teleport survivors in enclosed areas to broken walls
+    flood fill to find a broken wall they can actually get to, then
+    teleport 'em there.
+*** DONE run the floodfill during the molasses phase
+    when a wall gets broken you should immediately see the area get
+    un-enclosed.
+*** DONE remove non-enclosed molasses at the end of each round 
 *** DONE people to rescue
 *** DONE fix droplets being able to land on molasses
 *** DONE can't build in enclosed areas
