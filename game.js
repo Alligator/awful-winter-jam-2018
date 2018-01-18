@@ -8,18 +8,20 @@ const MAP_PIECE_HEIGHT = 3;
 
 const TILE_GROUND_MIN = 16;
 const TILE_GROUND_MAX = 31;
+const TILE_GRASS = 29;
 const TILE_FLOOR = 9;
 const TILE_WALL = 3;
 const TILE_WALL_CRACKED = TILE_WALL + 2;
-const TILE_INERT_MOLASSES = 80;
+const TILE_INERT_MOLASSES = 112;
+const TILE_TITLE = 219;
 
 const TILE_WATER = 2;
 const TILE_WATER_EDGE_MIN = 32;
 const TILE_WATER_EDGE_MAX = 35;
 
-const TILE_MOLASSES = 81;
-const TILE_MOLASSES_MIN = 80;
-const TILE_MOLASSES_MAX = 81;
+const TILE_MOLASSES = 113;
+const TILE_MOLASSES_MIN = 112;
+const TILE_MOLASSES_MAX = 113;
 
 const TILE_SURVIVOR = 240;
 const TILE_RALLY_POINT = 241;
@@ -45,7 +47,9 @@ const FLAG_SOLID = 16; // basically just for structures on the map
 
 const TXT_BUILDING = "GET BUILDIN'";
 const TXT_MOLASSES = "THE MOLASSES IS SPREADING!";
+const TXT_ROUND_END = "ROUND END REPORT";
 
+const TRANSITION_TIME = 90;
 const BUILD_TIMER = 15;
 
 var frameCounter = 0;
@@ -53,12 +57,13 @@ var frameCounter = 0;
 function tileHasFlag(tile, type) {
     var result = 0;
 
-    if (tile === TILE_WATER) {
+    if (tile === TILE_WATER || tile === TILE_TITLE) {
         result |= FLAG_SPREADABLE;
     }
 
     if ((tile >= TILE_GROUND_MIN && tile <= TILE_GROUND_MAX)
-       || tile === TILE_FLOOR) {
+        || (tile >= 36 && tile <= 39)
+        || tile === TILE_FLOOR) {
         result |= FLAG_BUILDABLE | FLAG_SPREADABLE;
     } else if (tile >= TILE_WALL && tile <= TILE_WALL_CRACKED) {
         result |= FLAG_WALL;
@@ -74,6 +79,7 @@ function tileHasFlag(tile, type) {
 
 const maps = [
     // TODO be funny
+    // { x: 30, y: 0 },
     {
         x: 150, y: 0,
         spreadRate: 0,
@@ -82,46 +88,46 @@ const maps = [
             // tutorial
             {
                 sprite: TILE_MOLASSES,
-                text: "This is molasses. It will break walls and kill people. Do NOT touch.",
+                text: "Molasses will break walls and kill people. Do NOT touch it.",
                 left: true,
                 smallSprite: true,
             },
             {
-                sprite: SPRITE_SURVIVOR,
-                text: "It's one of the boys. Keep enough of 'em safe to win!",
+                sprite: TILE_WALL,
+                text: "Build walls to hold the molasses back and keep people safe.",
                 left: true,
                 smallSprite: true,
                 waitForKey: true,
             },
             {
-                sprite: TILE_WALL,
-                text: "This is a wall. Surround boys with these to keep 'em safe.",
+                sprite: TILE_FLOOR,
+                text: "Surround an area with walls and it will become safe.",
                 left: true,
                 smallSprite: true,
             },
             {
-                sprite: TILE_FLOOR,
-                text: "When an area is safe it looks like this.",
+                sprite: SPRITE_SURVIVOR,
+                text: "Get enough people in safe areas to win!",
                 left: true,
                 smallSprite: true,
                 waitForKey: true,
             },
             {
                 sprite: TILE_WALL_CRACKED,
-                text: "Boys will repair walls they can reach when they're safe.",
+                text: "People will try to repair walls when they're in a safe area.",
                 left: true,
                 smallSprite: true,
             },
             {
                 sprite: SPRITE_FLAG,
-                text: "Rally point. Boys will run to this. Save them before the Molasses gets 'em!",
+                text: "People will run towards the rally point.",
                 left: true,
                 smallSprite: true,
                 waitForKey: true,
             },
             {
                 sprite: SPRITE_THUMBS_UP,
-                text: "Good luck!!",
+                text: "Left click to place, right click to rotate. Good luck!",
                 left: true,
                 waitForKey: true,
                 disableAnimation: true,
@@ -130,7 +136,7 @@ const maps = [
     },
     {
         x: 60, y: 0,
-        spreadRate: 10,
+        spreadRate: 0.5,
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
@@ -160,7 +166,7 @@ const maps = [
             },
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "YOU GET BUILDIN\' WALLS AND something something etc",
+                text: "START BUILDIN' WALLS bla bla",
                 left: true,
                 voice: 0,
             },
@@ -168,33 +174,92 @@ const maps = [
     },
     {
         x: 90, y: 0,
-        spreadRate: 20,
+        spreadRate: 0.6,
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "it's coming to the warehouses etc",
+                text: "IT'S NEARLY AT THE WAREHOUSES! BUILD FASTER!",
                 left: true,
+                voice: 0,
             },
             {
                 sprite: SPRITE_HEAD_NEWSIE,
-                text: "sardonic reply",
+                text: "these walls look like sponges.",
                 left: false,
+                waitForKey: true,
+                voice: 1,
             },
+            // beware, the dumbest joke is below
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "very angry reply",
+                text: "YOU LOOK LIKE A SPONGE",
                 left: true,
+                voice: 0,
             },
             {
-                sprite: SPRITE_HEAD_NEWSIE,
-                text: "one word response",
+                sprite: TILE_WALL,
+                text: "this is true.",
                 left: false,
+                smallSprite: true,
+                voice: 1,
             },
         ],
     },
     {
         x: 120, y: 0,
-        spreadRate: 25,
+        spreadRate: 0.6,
+        baseTile: TILE_GRASS,
+        cutscene: [
+            {
+                sprite: SPRITE_HEAD_CHIEF,
+                text: "AHHH IT'S GOTTEN TO THE PARK!",
+                left: true,
+                voice: 0,
+            },
+            {
+                sprite: SPRITE_HEAD_NEWSIE,
+                text: "dry, all lowercase response",
+                left: false,
+                voice: 1,
+            },
+        ],
+    },
+    {
+        x: 180, y: 0,
+        spreadRate: 0.7,
+        cutscene: [
+            {
+                sprite: SPRITE_HEAD_CHIEF,
+                text: "NOW IT'S ON MAIN STREET!",
+                left: true,
+                voice: 0,
+            },
+            {
+                sprite: SPRITE_HEAD_NEWSIE,
+                text: "yup",
+                left: false,
+                voice: 1,
+            },
+        ],
+    },
+    {
+        x: 210, y: 0,
+        spreadRate: 0.8,
+        baseTile: TILE_GRASS,
+        cutscene: [
+            {
+                sprite: SPRITE_HEAD_CHIEF,
+                text: "IT'S NEARLY AT CITY HALL. ACT FAST!",
+                left: true,
+                voice: 0,
+            },
+            {
+                sprite: SPRITE_HEAD_NEWSIE,
+                text: "bleep bloop computer words",
+                left: false,
+                voice: 1,
+            },
+        ],
     },
 ];
 
@@ -204,7 +269,7 @@ for (var i = 0; i < 30 * 17; i++) {
 }
 
 var globals = {
-    mapId:00,
+    mapId: 0,
     paused: false,
     filled: new Array(30 * 17),
     initialSurviors: 0,
@@ -219,6 +284,8 @@ function GameState() {
         buildState: BuildState(60, BUILD_TIMER),
         molassesState: MolassesState(),
         roundEndState: RoundEndState(),
+        titleScreenState: TitleScreenState(),
+        endState: EndState(),
     };
 
     self.transition = function(newState) {
@@ -260,6 +327,27 @@ function jtrace(obj, pretty) {
     }
 }
 
+function TitleScreenState() {
+    var self = {};
+
+    self.update = function() {
+        if (mouse()[2]) {
+            gameState.transition(gameState.populateMapState);
+        }
+    };
+
+    self.draw = function() {
+        cls(14);
+        spr(368, 76, 16, 14, 1, 0, 0, 11, 2);
+        printCentered('a game by alligator', 120, 48);
+        printCentered('for the TIC-80', 120, 58);
+        printCentered('click to continue', 120, 78);
+        printCentered('awful winter jam 2018', 120, 124);
+    };
+
+    return self;
+}
+
 // ----------------------------------------------------------------------------
 function PopulateMapState() {
     var self = { popMapState: true };
@@ -284,11 +372,11 @@ function PopulateMapState() {
                         type: 'SURVIVOR',
                         sprite: SPRITE_SURVIVOR,
                     });
-                    mset(x, y, TILE_GROUND_MIN);
+                    mset(x, y, map.baseTile || TILE_GROUND_MIN);
                     break;
                 case TILE_RALLY_POINT:
                     globals.rallyPoint = { x, y };
-                    mset(x, y, TILE_GROUND_MIN);
+                    mset(x, y, map.baseTile || TILE_GROUND_MIN);
                     entities[y * 30 + x] = { sprite: SPRITE_FLAG };
                     break;
                 }
@@ -300,10 +388,10 @@ function PopulateMapState() {
     self.update = function() {
         const cutscene = maps[globals.mapId].cutscene;
         if (cutscene) {
-            const nextState = new TransitionState(60, TXT_BUILDING, gameState.buildState);
+            const nextState = new TransitionState(TRANSITION_TIME, TXT_BUILDING, gameState.buildState);
             gameState.transition(new CutsceneState(cutscene, nextState));
         } else {
-            gameState.transition(new TransitionState(60, TXT_BUILDING, gameState.buildState));
+            gameState.transition(new TransitionState(TRANSITION_TIME, TXT_BUILDING, gameState.buildState));
         }
     };
 
@@ -493,6 +581,8 @@ function BuildState(piecesToPlace, timeToPlace) {
     };
 
     self.checkValidPlacement = function(ignoreWalls) {
+        //var totalTiles = 0;
+        //var totalTilesInWall = 0;
         for (var x = 0; x < MAP_PIECE_WIDTH; x++) {
             for (var y = 0; y < MAP_PIECE_HEIGHT; y++) {
                 const tile = mget(MAP_SCRATCH_X + x, MAP_SCRATCH_Y + y);
@@ -502,8 +592,15 @@ function BuildState(piecesToPlace, timeToPlace) {
                 const entity = getEntity(mx, my);
 
                 if (tile > 0) {
-                    if (!tileHasFlag(mapTile, FLAG_BUILDABLE)
-                        || (ignoreWalls && tileHasFlag(mapTile, FLAG_WALL))
+                    const hasWall = tileHasFlag(mapTile, FLAG_WALL);
+                    const buildable = tileHasFlag(mapTile, FLAG_BUILDABLE);
+                    //totalTiles++;
+
+                    //if (hasWall) {
+                    //    totalTilesInWall++;
+                    //}
+
+                    if (!buildable
                         || (entity && entity.type !== 'DROPLET')
                         || mx < 0 || mx > 29
                         || my < 0 || my > 16
@@ -513,6 +610,7 @@ function BuildState(piecesToPlace, timeToPlace) {
                 }
             }
         }
+        //return totalTilesInWall === 0 || totalTilesInWall === totalTiles;
         return true;
     };
 
@@ -583,13 +681,19 @@ function BuildState(piecesToPlace, timeToPlace) {
     };
 
     self.moveToNextState = function() {
-            gameState.transition(new TransitionState(60, TXT_MOLASSES, gameState.molassesState));
-            self.piecesRemaining = piecesToPlace;
+        gameState.transition(new TransitionState(60, TXT_MOLASSES, gameState.molassesState));
+        //self.piecesRemaining = piecesToPlace;
     };
 
     self.update = function() {
-        if (btnp(5) || (time() > self.endTime && !self.hasPiece)) {// || (self.piecesRemaining <= 0 && time() > self.placementTimer)) {
+        if (btnp(5) || (time() > self.endTime && !self.hasPiece)) {
             self.moveToNextState();
+        }
+
+        if (keyp(18)) {
+            // quick reset
+            gameState.reset();
+            gameState.transition(new TransitionState(60, 'RESTART!', gameState.populateMapState));
         }
 
         if (!self.hasPiece) {
@@ -649,9 +753,14 @@ function BuildState(piecesToPlace, timeToPlace) {
     };
 
     self.drawTime = function() {
-        const tm = Math.max((self.endTime - time()) / 1000, 0).toFixed(0);
+        var tm = Math.max((self.endTime - time()) / 1000, 0).toFixed(0);
+        var color = 15;
+        if (tm <= 0) {
+            tm = 'LAST BLOCK!';
+            color = (frameCounter % 12 < 6) ? 3 : 15;
+        }
         printCentered(tm, 120, 6, 14, 0, 2);
-        printCentered(tm, 120, 4, 15, 0, 2);
+        printCentered(tm, 120, 4, color, 0, 2);
     };
 
     self.draw = function() {
@@ -682,7 +791,8 @@ function MolassesState(updates) {
     };
 
     self.onEnter = function() {
-        self.updates = maps[globals.mapId].spreadRate;
+        self.updates = 15;
+        self.spreadRate = maps[globals.mapId].spreadRate;
         self.calculatePaths();
         forAllEntities(function(x, y, entity) {
             if (entity.type === 'DROPLET') {
@@ -728,7 +838,7 @@ function MolassesState(updates) {
         for (var x = 0; x < 30; x++) {
             for (var y = 0; y < 17; y++) {
                 if (!tileHasFlag(mget(x, y), FLAG_MOLASSES)) continue;
-                if (Math.random() > 0.5) continue;
+                if (Math.random() > self.spreadRate) continue;
 
                 if (self.isSurrounded(x, y)) {
                     mset(x, y, TILE_INERT_MOLASSES);
@@ -740,7 +850,7 @@ function MolassesState(updates) {
                 var nextY;
 
                 const closest = self.paths[y * 30 + x];
-                if (!closest || Math.random() > 0.5) {
+                if (!closest || Math.random() > 0.7) {
                     switch (direction) {
                     case 0: nextX = x + 1; nextY = y;     break;
                     case 1: nextX = x;     nextY = y + 1; break;
@@ -764,17 +874,11 @@ function MolassesState(updates) {
                     self.forNeighbours(x, y, function(nx, ny) {
                         if (self.isSurrounded(nx, ny)) {
                             mset(nx, ny, TILE_INERT_MOLASSES);
+                            self.maybeKillSurvivor(nx, ny);
                         }
                     });
 
-                    const entity = getEntity(nextX, nextY);
-                    if (entity && entity.type === 'DROPLET') {
-                        setEntity(nextX, nextY, null);
-                    } else if (entity && entity.type === 'SURVIVOR') {
-                        // we killed a man
-                        self.deaths.push({ x: nextX * 8, y: nextY * 8 });
-                        setEntity(nextX, nextY, null);
-                    }
+                    self.maybeKillSurvivor(nextX, nextY);
                 }
 
                 if (tileHasFlag(tile, FLAG_WALL)) {
@@ -788,6 +892,15 @@ function MolassesState(updates) {
                     }
                 }
             }
+        }
+    };
+
+    self.maybeKillSurvivor = function(x, y) {
+        const entity = getEntity(x, y);
+        if (entity && entity.type === 'SURVIVOR') {
+            // we killed a man
+            self.deaths.push({ x: x * 8, y: y * 8 });
+            setEntity(x, y, null);
         }
     };
 
@@ -820,7 +933,7 @@ function MolassesState(updates) {
                     jtrace({ x, y });
                     trace('current target:')
                 }
-                if (entity.target) {
+                if (entity.target && debug) {
                     jtrace(Object.assign({}, entity.target, {
                         thf: tileHasFlag(mget(entity.target.wallX, entity.target.wallY), FLAG_WALL),
                         tw: mget(entity.target.wallX, entity.target.wallY) > TILE_WALL,
@@ -842,6 +955,8 @@ function MolassesState(updates) {
                     } else {
                         if (debug) trace('um help the wall is gone');
                     }
+                } else {
+                    entity.sprite = SPRITE_SURVIVOR;
                 }
 
                 if (!entity.target) {
@@ -853,7 +968,7 @@ function MolassesState(updates) {
                     var prevX = 0;
                     var prevY = 0;
                     entity.target = null;
-                    floodFill4(x, y, function(tileX, tileY) {
+                    floodFill(x, y, function(tileX, tileY) {
                         if (target) {
                             return false;
                         }
@@ -872,8 +987,10 @@ function MolassesState(updates) {
                     });
 
                     if (target) {
-                        if (debug) trace('found this:');
-                        jtrace(target);
+                        if (debug) {
+                            trace('found this:');
+                            jtrace(target);
+                        }
                         entity.target = target;
                         nextX = target.x;
                         nextY = target.y;
@@ -929,7 +1046,7 @@ function MolassesState(updates) {
                 return;
             } else if (self.updates === -1) {
                 if (self.deaths.length === 0) {
-                    gameState.transition(gameState.roundEndState);
+                    gameState.transition(new TransitionState(TRANSITION_TIME, TXT_ROUND_END, gameState.roundEndState));
                 }
                 return;
             }
@@ -981,9 +1098,10 @@ function RoundEndState() {
         won: false,
         lost: false,
         finished: false,
+        xOffset: 0,
     };
 
-    const winAmount = 0.75;
+    const winAmount = 0.6;
     const highlightTime = 500;
     const highlightColor = 6;
 
@@ -994,8 +1112,13 @@ function RoundEndState() {
         self.countSurvivors();
         self.nextUpdateTime = time() + highlightTime;
 
-        self.lost = self.totalSurvivors < (globals.initialSurviors * winAmount);
+        self.lost = self.totalSurvivors === 0;
         self.won = !self.lost && self.enclosedSurvivors.length >= (globals.initialSurviors * winAmount);
+
+        self.xOffset = 0;
+        if (self.enclosedSurvivors.length) {
+            self.xOffset = -self.enclosedSurvivors[0].x + 10;
+        }
     };
 
     self.countSurvivors = function() {
@@ -1008,9 +1131,14 @@ function RoundEndState() {
             }
             self.totalSurvivors++;
         }, 'SURVIVOR');
+
+        self.enclosedSurvivors.sort(function(a, b) {
+            return a.x - b.x;
+        });
     }
 
     self.update = function() {
+        if (self.finished && !mouse()[2]) return;
         if (time() < self.nextUpdateTime) return;
 
         if (self.currentSurvivorIndex < self.enclosedSurvivors.length - 1) {
@@ -1021,12 +1149,16 @@ function RoundEndState() {
             if (self.won) {
                 globals.mapId++;
                 gameState.reset();
-                gameState.transition(gameState.populateMapState);
+                if (globals.mapId >= maps.length) {
+                    gameState.transition(gameState.endState);
+                } else {
+                    gameState.transition(new TransitionState(TRANSITION_TIME, "Minutes later...", gameState.populateMapState));
+                }
             } else if (self.lost) {
                 gameState.reset();
-                gameState.transition(gameState.populateMapState);
+                gameState.transition(new TransitionState(TRANSITION_TIME, "TRY AGAIN", gameState.populateMapState));
             } else {
-                gameState.transition(gameState.buildState);
+                gameState.transition(new TransitionState(TRANSITION_TIME, TXT_BUILDING, gameState.buildState));
             }
         } else {
             self.nextUpdateTime += 2000;
@@ -1035,57 +1167,84 @@ function RoundEndState() {
     };
 
     self.draw = function() {
-        drawMap();
-        drawEntities();
-        rect(120, 20, 80, 98, 0);
-
-        const color = (frameCounter % 12 < 6) ? highlightColor : 14;
-        const count = self.enclosedSurvivors.length ? (self.currentSurvivorIndex + 1) : 0;
-        var y = 30;
-
-        printCentered(count, 160, y, color, 0, 2);
-        y += 20;
-        printCentered('SURVIVORS', 160, y, 15);
-        y += 8;
-        printCentered('SAFE', 160, y, 15);
-        y += 16;
-        printCentered(Math.ceil(globals.initialSurviors * winAmount) + '       ', 160, y, color, true);
-        printCentered('  NEEDED', 160, y, 15, true);
-
-        if (self.finished) {
-            y += 16;
-            if (self.won) {
-                printCentered('LETS SCRAM!!', 160, y, color);
-            } else if (self.lost) {
-                printCentered('they\'re', 160, y, color);
-                y += 8
-                printCentered('all dead.', 160, y, color);
-            } else {
-                printCentered('NOT ENOUGH!!', 160, y, color);
-            }
+        const currentSurvivor = self.enclosedSurvivors[self.currentSurvivorIndex];
+        if (currentSurvivor) {
+            const next = Math.max(0, Math.min(10, -currentSurvivor.x + 20));
+            self.xOffset = (1 - 0.05) * self.xOffset + 0.05 * next;
         }
+
+        drawMap(self.xOffset);
+        drawEntities(self.xOffset);
+        const flashingColor = (frameCounter % 12 < 6) ? highlightColor : highlightColor - 1;
+        const count = self.enclosedSurvivors.length ? (self.currentSurvivorIndex + 1) : 0;
+        const x = 40;
+        var y = 16;
 
         for (var i = 0; i <= self.currentSurvivorIndex; i++) {
             const survivor = self.enclosedSurvivors[i];
             if (survivor) {
-                rectb(survivor.x * 8, survivor.y * 8, 8, 8, color);
+                rectb((survivor.x + self.xOffset) * 8, survivor.y * 8, 8, 8, flashingColor);
             }
+        }
+
+        rect(0, 0, 80, 136, 0);
+
+        printCentered(count, x, y, flashingColor, 0, 2);
+        y += 20;
+        printCentered('SURVIVORS', x, y, 15);
+        y += 8;
+        printCentered('SAFE', x, y, 15);
+        y += 16;
+        printCentered(Math.ceil(globals.initialSurviors * winAmount) + '       ', x, y, flashingColor, true);
+        printCentered('  NEEDED', x, y, 15, true);
+
+        if (self.finished) {
+            y += 16;
+            if (self.won) {
+                printCentered('LETS SCRAM!!', x, y, flashingColor);
+            } else if (self.lost) {
+                printCentered('they\'re', x, y, flashingColor);
+                y += 8
+                printCentered('all dead.', x, y, flashingColor);
+            } else {
+                printCentered('NOT ENOUGH!!', x, y, flashingColor);
+            }
+
+            const color = (frameCounter % 12 < 6) ? 15 : 3;
+            y += 24;
+            printCentered('CLICK', x, y, color);
+            y += 8;
+            printCentered('TO CONTINUE', x, y, color);
         }
     };
 
     return self;
 }
 
+function EndState() {
+    var self = {};
+
+    self.draw = function() {
+        cls(0);
+        printCentered('YOU WON!', 120, 32);
+        printCentered('theres nothing here yet...', 120, 48);
+        printCentered('Thanks for playing!', 120, 72);
+        printCentered('- alligator -', 120, 88);
+    };
+
+    return self;
+};
+
 // ----------------------------------------------------------------------------
 // FLOOD FILL
-function floodFill(x, y) {
+function floodFill(x, y, checkFn) {
     const visited = new Array(32 * 19);
     const filled = [];
-    floodFill8Recursive(x, y, filled, visited);
+    floodFill8Recursive(x, y, filled, visited, checkFn);
     return filled;
 }
 
-function floodFill8Recursive(x, y, filled, visited) {
+function floodFill8Recursive(x, y, filled, visited, checkFn) {
     if ( x < 0 || x > 31 || y < 0 || y > 18) {
         return;
     }
@@ -1097,10 +1256,14 @@ function floodFill8Recursive(x, y, filled, visited) {
     visited[y * 32 + x] = true;
 
     var tileCheck;
-    if (x == 0 || x == 31 || y == 0 || y == 18) {
-        tileCheck = true;
+    if (checkFn) {
+        tileCheck = checkFn(x, y);
     } else {
-        tileCheck = !tileHasFlag(mget(x-1, y-1), FLAG_SOLID);
+        if (x == 0 || x == 31 || y == 0 || y == 18) {
+            tileCheck = true;
+        } else {
+            tileCheck = !tileHasFlag(mget(x-1, y-1), FLAG_SOLID);
+        }
     }
 
     if (!tileCheck) {
@@ -1109,14 +1272,14 @@ function floodFill8Recursive(x, y, filled, visited) {
 
     filled[y * 32 + x] = true;
 
-    floodFill8Recursive(x + 1 , y,     filled, visited);
-    floodFill8Recursive(x - 1 , y,     filled, visited);
-    floodFill8Recursive(x     , y + 1, filled, visited);
-    floodFill8Recursive(x     , y - 1, filled, visited);
-    floodFill8Recursive(x + 1 , y + 1, filled, visited);
-    floodFill8Recursive(x - 1 , y - 1, filled, visited);
-    floodFill8Recursive(x - 1 , y + 1, filled, visited);
-    floodFill8Recursive(x + 1 , y - 1, filled, visited);
+    floodFill8Recursive(x + 1 , y,     filled, visited, checkFn);
+    floodFill8Recursive(x - 1 , y,     filled, visited, checkFn);
+    floodFill8Recursive(x     , y + 1, filled, visited, checkFn);
+    floodFill8Recursive(x     , y - 1, filled, visited, checkFn);
+    floodFill8Recursive(x + 1 , y + 1, filled, visited, checkFn);
+    floodFill8Recursive(x - 1 , y - 1, filled, visited, checkFn);
+    floodFill8Recursive(x - 1 , y + 1, filled, visited, checkFn);
+    floodFill8Recursive(x + 1 , y - 1, filled, visited, checkFn);
 }
 
 
@@ -1191,8 +1354,10 @@ function resetMapTile(mapId, x, y) {
     }
 }
 
-function drawMap() {
-    map(0, 0, 30, 17, 0, 0);
+function drawMap(xoff, yoff) {
+    const xOffset = xoff || 0;
+    const yOffset = yoff || 0;
+    map(0, 0, 30, 17, xOffset * 8, yOffset * 8);
 }
 
 // ----------------------------------------------------------------------------
@@ -1222,15 +1387,17 @@ function setEntity(x, y, entity) {
     entities[y * 30 + x] = entity;
 }
 
-function drawEntities() {
+function drawEntities(xoff, yoff) {
+    const xOffset = xoff || 0;
+    const yOffset = yoff || 0;
     forAllEntities(function(x, y, entity) {
-        spr(entity.sprite, x*8, y*8, 0);
+        spr(entity.sprite, x*8 + (xOffset * 8), y*8 + (yOffset * 8), 0);
     });
 }
 
 
 function printCentered(text, x, y, color, fixed, scale) {
-    const width = print(text, -100, 0, 0, fixed, scale);
+    const width = print(text, -100, -100, 0, fixed, scale);
     print(text, x - (width/2), y, color, fixed, scale);
 }
 
@@ -1258,7 +1425,7 @@ function printWrapped(text, x, y, width, left, color, fixed, scale) {
 // ----------------------------------------------------------------------------
 // TIC STUFF
 function init() {
-    gameState.transition(gameState.populateMapState);
+    gameState.transition(gameState.titleScreenState);
 }
 init()
 
@@ -1267,7 +1434,7 @@ function update() {
 }
 
 function draw() {
-    cls(0);
+    //cls(0);
     gameState.draw();
 
     /*
@@ -1284,9 +1451,9 @@ function draw() {
 
 function TIC() {
     try {
-        if (btnp(4)) {
-            globals.paused = !globals.paused;
-        }
+        // if (btnp(4)) {
+        //     globals.paused = !globals.paused;
+        // }
 
         if (!globals.paused) {
             update();
