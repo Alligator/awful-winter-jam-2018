@@ -315,7 +315,7 @@ for (var i = 0; i < 30 * 17; i++) {
 }
 
 var globals = {
-    mapId: 3,
+    mapId: 0,
     paused: false,
     filled: new Array(30 * 17),
     initialSurviors: 0,
