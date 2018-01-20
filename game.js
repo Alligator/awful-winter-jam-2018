@@ -143,7 +143,7 @@ const maps = [
     },
     {
         x: 60, y: 0,
-        spreadRate: 0.5,
+        spreadRate: 0.4,
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
@@ -174,7 +174,7 @@ const maps = [
     },
     {
         x: 90, y: 0,
-        spreadRate: 0.6,
+        spreadRate: 0.5,
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
@@ -207,7 +207,7 @@ const maps = [
     },
     {
         x: 120, y: 0,
-        spreadRate: 0.7,
+        spreadRate: 0.6,
         baseTile: TILE_GRASS,
         survivorSprite: SPRITE_DUCK,
         survivorRepairingSprite: SPRITE_DUCK_REPAIRING,
@@ -245,7 +245,7 @@ const maps = [
     },
     {
         x: 180, y: 0,
-        spreadRate: 0.7,
+        spreadRate: 0.6,
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
@@ -270,7 +270,7 @@ const maps = [
     },
     {
         x: 210, y: 0,
-        spreadRate: 0.8,
+        spreadRate: 0.7,
         baseTile: TILE_GRASS,
         cutscene: [
             {
