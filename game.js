@@ -56,13 +56,19 @@ const TXT_BUILDING = "GET BUILDIN'";
 const TXT_MOLASSES = "THE MOLASSES IS SPREADING!";
 const TXT_ROUND_END = "ROUND END REPORT";
 
-const SFX_BUIDLING = 5;
+const SFX_BUIDLING = 10;
+const SFX_DESTROY = 5;
 const SFX_COUNTER = 6;
 const SFX_COUNTER_PITCH = 64;
+const SFX_PLACE = 9;
+
+const MUSIC_VICTORY = 0;
+const MUSIC_MENU = 1;
+const MUSIC_END = 2;
 
 const TRANSITION_TIME = 90;
 const BUILD_TIMER = 15;
-const SPLASH_TIME = 20;
+const SPLASH_TIME = 90;
 
 var frameCounter = 0;
 var gameTime = 0;
@@ -92,7 +98,6 @@ const maps = [
                 text: "Molasses will break walls and kill people. Avoid it at all cost!",
                 left: true,
                 smallSprite: true,
-                voice: 7,
             },
             {
                 sprite: TILE_WALL,
@@ -122,7 +127,7 @@ const maps = [
             },
             {
                 sprite: SPRITE_FLAG,
-                text: "People will run towards the rally point.",
+                text: "If they're not in a safe area they'll run towards the rally point.",
                 left: true,
                 smallSprite: true,
                 waitForKey: true,
@@ -286,6 +291,7 @@ const maps = [
         x: 0, y: 17,
         skip: true,
         disableCutsceneSkip: true,
+        music: MUSIC_END,
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
@@ -365,6 +371,8 @@ function TitleScreenState() {
     };
 
     const molasses = MolassesState(-2, 0.25);
+    const textColor = 15;
+    const shadowColor = 1;
 
     self.onEnter = function() {
         for (var x = 0; x < 30; x++) {
@@ -375,6 +383,11 @@ function TitleScreenState() {
 
         mset(15, 16, TILE_INERT_MOLASSES);
         molasses.onEnter();
+        music(MUSIC_MENU);
+    };
+
+    self.onExit = function() {
+        music();
     };
 
     self.update = function() {
@@ -419,31 +432,31 @@ function TitleScreenState() {
         spr(368, 76, 12, 14, 1, 0, 0, 11, 2);
 
         var y = 40;
-        printCentered('A game by alligator', 120, y+1, 0);
-        printCentered('A game by alligator', 120, y);
+        printCentered('A game by alligator', 120, y+1, shadowColor);
+        printCentered('A game by alligator', 120, y, textColor);
         y+= 10;
-        printCentered('for the TIC-80', 120, y+1, 0);
-        printCentered('for the TIC-80', 120, y);
+        printCentered('for the TIC-80 fantasy console', 120, y+1, shadowColor);
+        printCentered('for the TIC-80 fantasy console', 120, y, textColor);
 
         y += 16;
-        print(' Left Mouse - Place', 48, y+1, 0, true);
-        print(' Left Mouse - Place', 48, y, 15, true);
+        print(' Left Mouse - Place', 48, y+1, shadowColor, true);
+        print(' Left Mouse - Place', 48, y, textColor, true);
         y += 10;
-        print('Right Mouse - Rotate', 48, y+1, 0, true);
-        print('Right Mouse - Rotate', 48, y, 15, true);
+        print('Right Mouse - Rotate', 48, y+1, shadowColor, true);
+        print('Right Mouse - Rotate', 48, y, textColor, true);
         y += 10;
-        print('          R - Quick restart', 48, y+1, 0, true);
-        print('          R - Quick restart', 48, y, 15, true);
+        print('          R - Quick restart', 48, y+1, shadowColor, true);
+        print('          R - Quick restart', 48, y, textColor, true);
         y += 10;
-        print('          P - Pause', 48, y+1, 0, true);
-        print('          P - Pause', 48, y, 15, true);
+        print('          P - Pause', 48, y+1, shadowColor, true);
+        print('          P - Pause', 48, y, textColor, true);
 
         y += 16;
-        printCentered('CLICK TO CONTINUE', 120, y+1, 0);
-        printCentered('CLICK TO CONTINUE', 120, y);
+        printCentered('CLICK TO CONTINUE', 120, y+1, shadowColor);
+        printCentered('CLICK TO CONTINUE', 120, y, textColor);
         //y += 16;
-        printCentered('Awful Winter Jam 2018', 120, 125, 0);
-        printCentered('Awful Winter Jam 2018', 120, 124);
+        printCentered('Awful Winter Jam 2018', 120, 125, shadowColor);
+        printCentered('Awful Winter Jam 2018', 120, 124, textColor);
     };
 
     self.draw = function() {
@@ -467,6 +480,9 @@ function PopulateMapState() {
         //h imset(map.molassesStart.x, map.molassesStart.y, TILE_MOLASSES);
         entities = [];
         self.createSurvivors();
+        if (map.music) {
+            music(map.music);
+        }
     };
 
     self.createSurvivors = function() {
@@ -826,6 +842,7 @@ function BuildState(piecesToPlace, timeToPlace) {
         self.validPlacement = self.checkValidPlacement();
         if (gameTime > self.placementTimer) {
             if (m[2] && self.validPlacement) {
+                sfx(SFX_PLACE, 24, 8);
                 self.placeCurrentPiece()
                 self.hasPiece = false;
                 self.piecesRemaining--;
@@ -935,13 +952,13 @@ function MolassesState(updates, spreadRate) {
         return tileHasFlag(mget(x, y), FLAG_MOLASSES);
     };
 
-    self.isSurrounded = function(x, y) {
+    self.neighbourCount = function(x, y) {
         var total = 0;
         if (x > 0 && self.isMolasses(x-1, y)) total++;
         if (x < 30 && self.isMolasses(x+1, y)) total++;
         if (y > 0 && self.isMolasses(x, y-1)) total++;
         if (y < 17 && self.isMolasses(x, y+1)) total++;
-        return total >= 3;
+        return total;
     };
 
     self.forNeighbours = function(x, y, fn) {
@@ -957,9 +974,10 @@ function MolassesState(updates, spreadRate) {
                 if (!tileHasFlag(mget(x, y), FLAG_MOLASSES)) continue;
                 if (Math.random() > self.spreadRate) continue;
 
-                if (self.isSurrounded(x, y)) {
+                const neighbours = self.neighbourCount(x, y);
+                if (neighbours > 3) {
                     mset(x, y, TILE_INERT_MOLASSES);
-                    continue;
+                    if (neighbours === 4) continue;
                 }
 
                 const direction = Math.floor(Math.random() * 4);
@@ -989,7 +1007,7 @@ function MolassesState(updates, spreadRate) {
                     mset(nextX, nextY, TILE_MOLASSES);
 
                     self.forNeighbours(x, y, function(nx, ny) {
-                        if (self.isSurrounded(nx, ny)) {
+                        if (self.neighbourCount(nx, ny) >= 3) {
                             mset(nx, ny, TILE_INERT_MOLASSES);
                             self.maybeKillSurvivor(nx, ny);
                         }
@@ -1004,6 +1022,7 @@ function MolassesState(updates, spreadRate) {
                     if (health > 0) {
                         mset(nextX, nextY, tile + 1);
                     } else {
+                        sfx(SFX_DESTROY, 32, 18, 0, 10);
                         resetMapTile(globals.mapId, nextX, nextY);
                         setMapFromFloodFill(floodFill(0, 0));
                     }
@@ -1068,7 +1087,7 @@ function MolassesState(updates, spreadRate) {
                         entity.target = null;
                     } else if (tileHasFlag(mget(entity.target.wallX, entity.target.wallY), FLAG_WALL)) {
                         if (debug) trace('repairing');
-                        sfx(map.survivorBuildingSound || SFX_BUIDLING, Math.floor(Math.random() * 4 + 28), 12, 0, 8);
+                        sfx(map.survivorBuildingSound || SFX_BUIDLING, Math.floor(Math.random() * 4 + 52), 12, 0, 9);
                         mset(entity.target.wallX, entity.target.wallY, mget(entity.target.wallX, entity.target.wallY) - 1);
                         entity.sprite = map.survivorRepairingSprite || SPRITE_SURVIVOR_REPAIRING;
                     } else {
@@ -1127,6 +1146,7 @@ function MolassesState(updates, spreadRate) {
                         }
                     });
                 }
+                entity.sprite = map.survivorSprite || SPRITE_SURVIVOR;
             }
 
             if (self.isValidSurvivorMove(nextX, nextY)) {
@@ -1274,6 +1294,9 @@ function RoundEndState() {
         } else {
             self.nextUpdateTime += 2000;
             self.finished = true;
+            if (self.won) {
+                music(MUSIC_VICTORY, 0, 0, false);
+            }
         }
     };
 
@@ -1303,6 +1326,7 @@ function RoundEndState() {
 
         rect(0, 0, 80, 136, 0);
 
+        printCentered(count, x, y+1, 1, 0, 2);
         printCentered(count, x, y, flashingColor, 0, 2);
         y += 20;
         printCentered(map.survivorName || 'PEOPLE', x, y, 15);
@@ -1346,7 +1370,7 @@ function EndState() {
         self.canResetTime = gameTime + 2000;
 
         cls(0);
-        var y = 8;
+        var y = 4;
         printCentered('You saved', 120, y); y+= 16;
         printCentered(globals.peopleSaved + ' people', 120, y, 9); y+= 8;
         printCentered('and', 120, y); y+= 8;
