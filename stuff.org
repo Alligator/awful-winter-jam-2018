@@ -1,6 +1,7 @@
 * Work log
 ** General time
    :LOGBOOK:
+   CLOCK: [2018-01-19 Fri 23:20]--[2018-01-20 Sat 00:50] =>  1:30
    CLOCK: [2018-01-18 Thu 20:30]--[2018-01-18 Thu 23:47] =>  3:17
    CLOCK: [2018-01-18 Thu 00:13]--[2018-01-18 Thu 00:42] =>  0:29
    CLOCK: [2018-01-17 Wed 18:47]--[2018-01-18 Thu 00:13] =>  5:26
@@ -25,20 +26,11 @@
 
 * Todo
 ** Feedback
-*** DONE buildings on main street not counting as walls
+*** TODO make the word wrapping not bad
+*** TODO menu music
 *** TODO HTML export is weirdly buggy
     120hz monitors... I guess I need to provide native files as well
     as HTML5.
-*** TODO make cutscenes just 1 screen
-*** DONE Diagonals
-    I think this is fixed by virtue of people being able to repair
-    diagonals now.
-*** DONE quick reset
-*** DONE people can get stuck in repair mode
-    Think it happens when walls break mid-repair. Maybe done?
-*** DONE the ending screen when you lose doesn't make sense
-*** DONE sometimes people end up in the molasses and live
-    haven't actually seen this. need to find repro.
 ** Features
 *** TODO show how many people you need to win at the start of a map
     ehhh this is on the round end screen, maybe thats enough?
@@ -54,8 +46,19 @@
     if the molasses starts in the center you can just remove it by
     enclosing it. this is harder than it seems because you can have
     separate enclosed areas and i need to filling only the one with molasses in.
-*** TODO sometimes survivors don't teleport to broken walls (but still fix them)
+*** DONE sometimes survivors don't teleport to broken walls (but still fix them)
 ** Done
+*** DONE make cutscenes just 1 screen
+*** DONE Diagonals
+    I think this is fixed by virtue of people being able to repair
+    diagonals now.
+*** DONE quick reset
+*** DONE people can get stuck in repair mode
+    Think it happens when walls break mid-repair. Maybe done?
+*** DONE the ending screen when you lose doesn't make sense
+*** DONE sometimes people end up in the molasses and live
+    haven't actually seen this. need to find repro.
+*** DONE buildings on main street not counting as walls
 *** DONE second map
 *** DONE rally points
 *** DONE teleport survivors in enclosed areas to broken walls

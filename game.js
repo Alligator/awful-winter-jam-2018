@@ -44,6 +44,7 @@ const SPRITE_THUMBS_UP = 276;
 
 const SPRITE_HEAD_CHIEF = 272;
 const SPRITE_HEAD_NEWSIE = 274;
+const SPRITE_HEAD_DUCK = 278;
 
 const FLAG_BUILDABLE = 1;
 const FLAG_SPREADABLE = 2;
@@ -55,38 +56,31 @@ const TXT_BUILDING = "GET BUILDIN'";
 const TXT_MOLASSES = "THE MOLASSES IS SPREADING!";
 const TXT_ROUND_END = "ROUND END REPORT";
 
+const SFX_BUIDLING = 5;
+const SFX_COUNTER = 6;
+const SFX_COUNTER_PITCH = 64;
+
 const TRANSITION_TIME = 90;
 const BUILD_TIMER = 15;
+const SPLASH_TIME = 20;
 
 var frameCounter = 0;
+var gameTime = 0;
+var lastFrameTime = 0;
 
-function tileHasFlag(tile, type) {
-    var result = 0;
-
-    if (tile === TILE_WATER || tile === TILE_TITLE || tile === TILE_MENU_BG) {
-        result |= FLAG_SPREADABLE;
-    }
-
-    if ((tile >= TILE_GROUND_MIN && tile <= TILE_GROUND_MAX)
-        || (tile >= 36 && tile <= 39)
-        || tile === TILE_FLOOR) {
-        result |= FLAG_BUILDABLE | FLAG_SPREADABLE;
-    } else if (tile >= TILE_WALL && tile <= TILE_WALL_CRACKED) {
-        result |= FLAG_WALL;
-        result |= FLAG_SOLID;
-    } else if ((tile >= TILE_BUILDING_MIN && tile <= TILE_BUILDING_MAX)
-               || (tile >= TILE_MORE_BUILDING_MIN && tile <= TILE_MORE_BUILDING_MAX)) {
-        result |= FLAG_SOLID;
-    } else if (tile >= TILE_MOLASSES_MIN && tile <= TILE_MOLASSES_MAX) {
-        result |= FLAG_MOLASSES;
-    }
-
-    return (result & type) > 0;
-}
+var globals = {
+    mapId: 0,
+    paused: false,
+    filled: new Array(30 * 17),
+    initialSurviors: 0,
+    rallyPoint: {},
+    peopleSaved: 0,
+    ducksSaved: 0,
+};
 
 const maps = [
     // TODO be funny
-    // { x: 30, y: 0 },
+    //{ x: 30, y: 0 },
     {
         x: 150, y: 0,
         spreadRate: 0,
@@ -98,6 +92,7 @@ const maps = [
                 text: "Molasses will break walls and kill people. Avoid it at all cost!",
                 left: true,
                 smallSprite: true,
+                voice: 7,
             },
             {
                 sprite: TILE_WALL,
@@ -213,14 +208,14 @@ const maps = [
         survivorRepairingSprite: SPRITE_DUCK_REPAIRING,
         survivorName: 'DUCKS',
         survivorCounter: 'ducksSaved',
+        survivorBuildingSound: 4,
         winMessage: "LET'S QUACK!",
         cutscene: [
             {
-                sprite: SPRITE_DUCK,
+                sprite: SPRITE_HEAD_DUCK,
                 text: "Quack quack quack, quack.",
                 left: true,
-                smallSprite: true,
-                voice: 3,
+                voice: 4,
             },
             {
                 sprite: SPRITE_HEAD_NEWSIE,
@@ -230,11 +225,10 @@ const maps = [
                 waitForKey: true,
             },
             {
-                sprite: SPRITE_DUCK,
+                sprite: SPRITE_HEAD_DUCK,
                 text: "QUACK! QUACK QUACK! QUAACK QUAAAACK!",
                 left: true,
-                smallSprite: true,
-                voice: 3,
+                voice: 4,
             },
             {
                 sprite: SPRITE_HEAD_NEWSIE,
@@ -314,16 +308,6 @@ for (var i = 0; i < 30 * 17; i++) {
     entities[i] = null;
 }
 
-var globals = {
-    mapId: 0,
-    paused: false,
-    filled: new Array(30 * 17),
-    initialSurviors: 0,
-    rallyPoint: {},
-    peopleSaved: 0,
-    ducksSaved: 0,
-};
-
 // ----------------------------------------------------------------------------
 function GameState() {
     var self = {
@@ -380,7 +364,6 @@ function TitleScreenState() {
         frame: 0,
     };
 
-    const splashTime = 10;
     const molasses = MolassesState(-2, 0.25);
 
     self.onEnter = function() {
@@ -395,7 +378,7 @@ function TitleScreenState() {
     };
 
     self.update = function() {
-        if (self.frame > splashTime && mouse()[2]) {
+        if (self.frame > SPLASH_TIME && mouse()[2]) {
             gameState.transition(gameState.populateMapState);
         }
         self.frame++;
@@ -431,9 +414,9 @@ function TitleScreenState() {
             }
         }
 
-        spr(368, 76, 18, 14, 1, 0, 0, 11, 2);
-        spr(368, 76, 17, 14, 1, 0, 0, 11, 2);
-        spr(368, 76, 16, 14, 1, 0, 0, 11, 2);
+        spr(368, 76, 14, 14, 1, 0, 0, 11, 2);
+        spr(368, 76, 13, 14, 1, 0, 0, 11, 2);
+        spr(368, 76, 12, 14, 1, 0, 0, 11, 2);
 
         var y = 40;
         printCentered('A game by alligator', 120, y+1, 0);
@@ -451,6 +434,9 @@ function TitleScreenState() {
         y += 10;
         print('          R - Quick restart', 48, y+1, 0, true);
         print('          R - Quick restart', 48, y, 15, true);
+        y += 10;
+        print('          P - Pause', 48, y+1, 0, true);
+        print('          P - Pause', 48, y, 15, true);
 
         y += 16;
         printCentered('CLICK TO CONTINUE', 120, y+1, 0);
@@ -461,7 +447,7 @@ function TitleScreenState() {
     };
 
     self.draw = function() {
-        if (self.frame < splashTime) {
+        if (self.frame < SPLASH_TIME) {
             self.drawWeirdHistory();
         } else {
             self.drawTitle();
@@ -573,7 +559,7 @@ function CutsceneState(cutscene, nextState) {
 
         const line = cutscene[self.linePointer];
 
-        if (time() > self.nextUpdate) {
+        if (gameTime > self.nextUpdate) {
             self.waitingForKey = false;
             if (self.textPointer < line.text.length) {
                 if (self.textPointer === 0 && self.linePointer % 2 === 0 && self.linePointer != 0) {
@@ -590,14 +576,14 @@ function CutsceneState(cutscene, nextState) {
                 if (self.textPointer < line.text.length
                     && line.text[self.textPointer - 1]
                     && ['.', ',', '!', '?'].indexOf(line.text[self.textPointer - 1]) >= 0) {
-                    self.nextUpdate = time() + textDelay * 30;
+                    self.nextUpdate = gameTime + textDelay * 30;
                 } else {
-                    self.nextUpdate = time() + textDelay;
+                    self.nextUpdate = gameTime + textDelay;
                 }
             } else if (line.waitForKey && !mouse()[2]) {
                 self.waitingForKey = true;
             } else if (self.linePointer < cutscene.length - 1) {
-                self.nextUpdate = time() + (line.waitForKey ? 0 : lineDelay);
+                self.nextUpdate = gameTime + (line.waitForKey ? 0 : lineDelay);
                 self.linePointer++;
                 self.textPointer = 0;
             } else {
@@ -697,7 +683,7 @@ function BuildState(piecesToPlace, timeToPlace) {
     const placementDelay = 250;
 
     self.onEnter = function() {
-        self.endTime = time() + timeToPlace * 1000;
+        self.endTime = gameTime + timeToPlace * 1000;
         self.floodFill();
     };
 
@@ -814,11 +800,10 @@ function BuildState(piecesToPlace, timeToPlace) {
 
     self.moveToNextState = function() {
         gameState.transition(new TransitionState(60, TXT_MOLASSES, gameState.molassesState));
-        //self.piecesRemaining = piecesToPlace;
     };
 
     self.update = function() {
-        if (btnp(5) || (time() > self.endTime && !self.hasPiece)) {
+        if (btnp(5) || (gameTime > self.endTime && !self.hasPiece)) {
             self.moveToNextState();
         }
 
@@ -839,21 +824,21 @@ function BuildState(piecesToPlace, timeToPlace) {
         self.mouseTileY = Math.floor(m[1] / 8) - 1;
 
         self.validPlacement = self.checkValidPlacement();
-        if (time() > self.placementTimer) {
+        if (gameTime > self.placementTimer) {
             if (m[2] && self.validPlacement) {
                 self.placeCurrentPiece()
                 self.hasPiece = false;
                 self.piecesRemaining--;
-                self.placementTimer = time() + placementDelay;
+                self.placementTimer = gameTime + placementDelay;
                 self.floodFill();
             } else if (m[3]) {
                 self.hasPiece = false;
                 self.piecesRemaining--;
-                self.placementTimer = time() + placementDelay;
+                self.placementTimer = gameTime + placementDelay;
                 self.floodFill();
             } else if (m[4]) {
                 self.rotate();
-                self.placementTimer = time() + placementDelay;
+                self.placementTimer = gameTime + placementDelay;
             }
         }
     };
@@ -866,7 +851,7 @@ function BuildState(piecesToPlace, timeToPlace) {
                     var c = shadowColour;
                     if (!self.validPlacement) {
                         c = invalidShadowColour;
-                    } else if (self.endTime - time() < 2000) {
+                    } else if (self.endTime - gameTime < 2000) {
                         c = frameCounter % 16 < 8 ? shadowColour : flashShadowColour;
                     } else {
                         c = shadowColour;
@@ -885,7 +870,7 @@ function BuildState(piecesToPlace, timeToPlace) {
     };
 
     self.drawTime = function() {
-        var tm = Math.max((self.endTime - time()) / 1000, 0).toFixed(0);
+        var tm = Math.max((self.endTime - gameTime) / 1000, 0).toFixed(0);
         var color = 15;
         if (tm <= 0) {
             tm = 'LAST BLOCK!';
@@ -1083,6 +1068,7 @@ function MolassesState(updates, spreadRate) {
                         entity.target = null;
                     } else if (tileHasFlag(mget(entity.target.wallX, entity.target.wallY), FLAG_WALL)) {
                         if (debug) trace('repairing');
+                        sfx(map.survivorBuildingSound || SFX_BUIDLING, Math.floor(Math.random() * 4 + 28), 12, 0, 8);
                         mset(entity.target.wallX, entity.target.wallY, mget(entity.target.wallX, entity.target.wallY) - 1);
                         entity.sprite = map.survivorRepairingSprite || SPRITE_SURVIVOR_REPAIRING;
                     } else {
@@ -1098,10 +1084,8 @@ function MolassesState(updates, spreadRate) {
                     // right wtf are we doing here
                     // we can find the cracked wall but we want the tile we /came from/
                     var target = null;
-                    var prevX = 0;
-                    var prevY = 0;
                     entity.target = null;
-                    floodFill(x, y, function(tileX, tileY) {
+                    floodFill(x, y, function(tileX, tileY, prevX, prevY) {
                         if (target) {
                             return false;
                         }
@@ -1114,8 +1098,6 @@ function MolassesState(updates, spreadRate) {
                             }
                             return false;
                         }
-                        prevX = tileX;
-                        prevY = tileY;
                         return mget(tileX, tileY) === TILE_FLOOR;
                     });
 
@@ -1171,10 +1153,10 @@ function MolassesState(updates, spreadRate) {
     };
 
     self.update = function() {
-        if (time() > self.nextUpdate) {
+        if (gameTime > self.nextUpdate) {
             if (self.updates === 0) {
                 self.removeFlowingMolasses();
-                self.nextUpdate = time() + 500;
+                self.nextUpdate = gameTime + 500;
                 self.updates--;
                 return;
             } else if (self.updates === -1) {
@@ -1187,7 +1169,7 @@ function MolassesState(updates, spreadRate) {
             self.spread();
             self.calculatePaths();
             self.moveSurvivors();
-            self.nextUpdate = time() + 250;
+            self.nextUpdate = gameTime + 250;
             self.updates--;
         }
     };
@@ -1239,18 +1221,18 @@ function RoundEndState() {
     const highlightColor = 6;
 
     self.onEnter = function() {
-        self.currentSurvivorIndex = 0;
+        self.currentSurvivorIndex = -1;
         self.finished = false;
 
         self.countSurvivors();
-        self.nextUpdateTime = time() + highlightTime;
+        self.nextUpdateTime = gameTime + highlightTime;
 
         self.lost = self.totalSurvivors < (globals.initialSurviors * winAmount);
         self.won = !self.lost && self.enclosedSurvivors.length >= (globals.initialSurviors * winAmount);
 
         self.xOffset = 0;
         if (self.enclosedSurvivors.length) {
-            self.xOffset = -self.enclosedSurvivors[0].x + 10;
+            self.xOffset = Math.max(0, Math.min(10, -self.enclosedSurvivors[0].x + 20));
         }
     };
 
@@ -1272,11 +1254,12 @@ function RoundEndState() {
 
     self.update = function() {
         if (self.finished && !mouse()[2]) return;
-        if (time() < self.nextUpdateTime) return;
+        if (gameTime < self.nextUpdateTime) return;
 
         if (self.currentSurvivorIndex < self.enclosedSurvivors.length - 1) {
             self.currentSurvivorIndex++;
             self.nextUpdateTime += highlightTime;
+            sfx(SFX_COUNTER, SFX_COUNTER_PITCH, -1, 0, 7);
         } else if (self.finished) {
             // we outta stuff to display
             if (self.won) {
@@ -1295,11 +1278,13 @@ function RoundEndState() {
     };
 
     self.draw = function() {
+        cls(0);
         const currentSurvivor = self.enclosedSurvivors[self.currentSurvivorIndex];
         const map = maps[globals.mapId];
         if (currentSurvivor) {
             const next = Math.max(0, Math.min(10, -currentSurvivor.x + 20));
             self.xOffset = (1 - 0.05) * self.xOffset + 0.05 * next;
+            //trace(self.xOffset);
         }
 
         drawMap(self.xOffset);
@@ -1358,7 +1343,7 @@ function EndState() {
     };
 
     self.onEnter = function() {
-        self.canResetTime = time() + 2000;
+        self.canResetTime = gameTime + 2000;
 
         cls(0);
         var y = 8;
@@ -1377,7 +1362,7 @@ function EndState() {
     };
 
     self.update = function() {
-        if (time() > self.canResetTime && mouse()[2]) {
+        if (gameTime > self.canResetTime && mouse()[2]) {
             reset();
         }
     };
@@ -1390,11 +1375,11 @@ function EndState() {
 function floodFill(x, y, checkFn) {
     const visited = new Array(32 * 19);
     const filled = [];
-    floodFill8Recursive(x, y, filled, visited, checkFn);
+    floodFill8Recursive(x, y, x, y, filled, visited, checkFn);
     return filled;
 }
 
-function floodFill8Recursive(x, y, filled, visited, checkFn) {
+function floodFill8Recursive(x, y, prevX, prevY, filled, visited, checkFn) {
     if ( x < 0 || x > 31 || y < 0 || y > 18) {
         return;
     }
@@ -1407,7 +1392,7 @@ function floodFill8Recursive(x, y, filled, visited, checkFn) {
 
     var tileCheck;
     if (checkFn) {
-        tileCheck = checkFn(x, y);
+        tileCheck = checkFn(x, y, prevX, prevY);
     } else {
         if (x == 0 || x == 31 || y == 0 || y == 18) {
             tileCheck = true;
@@ -1422,14 +1407,14 @@ function floodFill8Recursive(x, y, filled, visited, checkFn) {
 
     filled[y * 32 + x] = true;
 
-    floodFill8Recursive(x + 1 , y,     filled, visited, checkFn);
-    floodFill8Recursive(x - 1 , y,     filled, visited, checkFn);
-    floodFill8Recursive(x     , y + 1, filled, visited, checkFn);
-    floodFill8Recursive(x     , y - 1, filled, visited, checkFn);
-    floodFill8Recursive(x + 1 , y + 1, filled, visited, checkFn);
-    floodFill8Recursive(x - 1 , y - 1, filled, visited, checkFn);
-    floodFill8Recursive(x - 1 , y + 1, filled, visited, checkFn);
-    floodFill8Recursive(x + 1 , y - 1, filled, visited, checkFn);
+    floodFill8Recursive(x + 1 , y,     x, y, filled, visited, checkFn);
+    floodFill8Recursive(x - 1 , y,     x, y, filled, visited, checkFn);
+    floodFill8Recursive(x     , y + 1, x, y, filled, visited, checkFn);
+    floodFill8Recursive(x     , y - 1, x, y, filled, visited, checkFn);
+    floodFill8Recursive(x + 1 , y + 1, x, y, filled, visited, checkFn);
+    floodFill8Recursive(x - 1 , y - 1, x, y, filled, visited, checkFn);
+    floodFill8Recursive(x - 1 , y + 1, x, y, filled, visited, checkFn);
+    floodFill8Recursive(x + 1 , y - 1, x, y, filled, visited, checkFn);
 }
 
 
@@ -1511,10 +1496,34 @@ function drawMap(xoff, yoff) {
     map(0, 0, 30, 17, xOffset * 8, yOffset * 8);
 }
 
+function tileHasFlag(tile, type) {
+    var result = 0;
+
+    if (tile === TILE_WATER || tile === TILE_TITLE || tile === TILE_MENU_BG) {
+        result |= FLAG_SPREADABLE;
+    }
+
+    if ((tile >= TILE_GROUND_MIN && tile <= TILE_GROUND_MAX)
+        || (tile >= 36 && tile <= 39)
+        || tile === TILE_FLOOR) {
+        result |= FLAG_BUILDABLE | FLAG_SPREADABLE;
+    } else if (tile >= TILE_WALL && tile <= TILE_WALL_CRACKED) {
+        result |= FLAG_WALL;
+        result |= FLAG_SOLID;
+    } else if ((tile >= TILE_BUILDING_MIN && tile <= TILE_BUILDING_MAX)
+               || (tile >= TILE_MORE_BUILDING_MIN && tile <= TILE_MORE_BUILDING_MAX)) {
+        result |= FLAG_SOLID;
+    } else if (tile >= TILE_MOLASSES_MIN && tile <= TILE_MOLASSES_MAX) {
+        result |= FLAG_MOLASSES;
+    }
+
+    return (result & type) > 0;
+}
+
 // ----------------------------------------------------------------------------
 // ENTITIES
 function forAllEntities(fn, filter) {
-    const tm = Math.floor(time());
+    const tm = Math.floor(gameTime);
 
     for (var i = 0; i < 30 * 17; i++) {
         const x = i % 30;
@@ -1533,7 +1542,7 @@ function getEntity(x, y) {
 
 function setEntity(x, y, entity) {
     if (entity) {
-        entity.updated = Math.floor(time());
+        entity.updated = Math.floor(gameTime);
     }
     entities[y * 30 + x] = entity;
 }
@@ -1573,6 +1582,15 @@ function printWrapped(text, x, y, width, left, color, fixed, scale) {
     });
 }
 
+
+function drawPause() {
+    const w = 80;
+    const h = 16;
+    rect(120 - w/2, 68 - h/2, 80, 20, 0);
+    rectb(120 - w/2, 68 - h/2, 80, 20, 2);
+    printCentered('- PAUSED -', 120, 68);
+}
+
 // ----------------------------------------------------------------------------
 // TIC STUFF
 function init() {
@@ -1588,27 +1606,33 @@ function draw() {
     //cls(0);
     gameState.draw();
 
-    /*
-    const m = mouse();
-    const mtx = Math.floor(m[0] / 8);
-    const mty = Math.floor(m[1] / 8);
-    const bx = m[0] + 8;
-    const by = m[1] + 8;
-    rect(bx, by, 28, 17);
-    print('X: ' + mtx, bx + 2, by + 2)
-    print('Y: ' + mty, bx + 2, by + 10)
-    */
+    // const m = mouse();
+    // const mtx = Math.floor(m[0] / 8);
+    // const mty = Math.floor(m[1] / 8);
+    // const bx = m[0] + 8;
+    // const by = m[1] + 8;
+    // rect(bx, by, 28, 17);
+    // print('X: ' + mtx, bx + 2, by + 2)
+    // print('Y: ' + mty, bx + 2, by + 10)
 }
 
 function TIC() {
     try {
-        // if (btnp(4)) {
-        //     globals.paused = !globals.paused;
-        // }
+        if (!globals.paused) {
+            const tm = time();
+            gameTime += tm- lastFrameTime
+            lastFrameTime = tm;
+        }
+
+        if (keyp(16)) {
+            globals.paused = !globals.paused;
+        }
 
         if (!globals.paused) {
             update();
             draw();
+        } else {
+            drawPause();
         }
         frameCounter++;
     } catch (e) {
