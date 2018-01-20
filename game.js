@@ -1110,9 +1110,9 @@ function MolassesState(updates, spreadRate) {
                         }
                         // jtrace({ tileX, tileY, m: mget(tileX, tileY) });
 
-                        if (tileHasFlag(mget(tileX, tileY), FLAG_WALL)) {
+                        if (tileHasFlag(mget(tileX, tileY), FLAG_SOLID)) {
                             const tile = mget(tileX, tileY);
-                            if (tile > TILE_WALL && !getEntity(tileX, tileY)) {
+                            if (tileHasFlag(tile, FLAG_WALL) && tile > TILE_WALL && !getEntity(tileX, tileY)) {
                                 target = { x: prevX, y: prevY, wallX: tileX, wallY: tileY };
                             }
                             return false;
