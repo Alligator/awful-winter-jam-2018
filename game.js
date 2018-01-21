@@ -1,3 +1,5 @@
+// title: Molasses!
+// author: alligator
 // script: js
 
 const MAP_SCRATCH_X = 210;
@@ -46,6 +48,13 @@ const SPRITE_HEAD_CHIEF = 272;
 const SPRITE_HEAD_NEWSIE = 274;
 const SPRITE_HEAD_DUCK = 278;
 
+const SPRITE_LMB = 328;
+const SPRITE_RMB = 330;
+const SPRITE_F11 = 270;
+const SPRITE_R = 302;
+const SPRITE_P = 334;
+const SPRITE_F = 366;
+
 const FLAG_BUILDABLE = 1;
 const FLAG_SPREADABLE = 2;
 const FLAG_MOLASSES = 4;
@@ -77,6 +86,7 @@ var lastFrameTime = 0;
 var globals = {
     mapId: 0,
     paused: false,
+    enableFlashing: true,
     filled: new Array(30 * 17),
     initialSurviors: 0,
     rallyPoint: {},
@@ -95,39 +105,39 @@ const maps = [
             // tutorial
             {
                 sprite: TILE_MOLASSES,
-                text: "Molasses will break walls and kill people. Avoid it at all cost!",
+                text: "Molasses will break walls\nand kill people. Avoid it\nat all cost!",
                 left: true,
                 smallSprite: true,
             },
             {
                 sprite: TILE_WALL,
-                text: "Build walls to hold the molasses back and keep people safe.",
+                text: "Build walls to hold the\nmolasses back and keep\npeople safe.",
                 left: true,
                 smallSprite: true,
                 waitForKey: true,
             },
             {
                 sprite: TILE_FLOOR,
-                text: "Surround an area with walls and it will become safe.",
+                text: "Surround an area with\nwalls and it will become\nsafe.",
                 left: true,
                 smallSprite: true,
             },
             {
                 sprite: SPRITE_SURVIVOR,
-                text: "Get enough people in safe areas to win!",
+                text: "Get enough people in\nsafe areas to win!",
                 left: true,
                 smallSprite: true,
                 waitForKey: true,
             },
             {
                 sprite: TILE_WALL_CRACKED,
-                text: "People will repair walls when they're in a safe area.",
+                text: "People will repair walls\nwhen they're in a safe\narea.",
                 left: true,
                 smallSprite: true,
             },
             {
                 sprite: SPRITE_FLAG,
-                text: "If they're not in a safe area they'll run towards the rally point.",
+                text: "If they're not in a safe\narea they'll run towards\nthe rally point.",
                 left: true,
                 smallSprite: true,
                 waitForKey: true,
@@ -147,7 +157,7 @@ const maps = [
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "HEY NEWSIE! WAKE UP! WE GOT A SITUATION HERE!",
+                text: "HEY NEWSIE! WAKE UP!\nWE GOT A SITUATION HERE!",
                 left: true,
                 voice: 0,
             },
@@ -160,13 +170,13 @@ const maps = [
             },
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "THAT DANG MOLASSES TANK FINALLY BURST! IT'S COMIN\' THIS WAY FAST!",
+                text: "THAT DANG MOLASSES TANK\nFINALLY BURST! IT'S COMIN\'\nTHIS WAY FAST!",
                 left: true,
                 voice: 0,
             },
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "START BUILIN' WALLS AND I'LL GO GET THE BOYS!",
+                text: "START BUILIN' WALLS!\nI'LL GO GET THE BOYS!",
                 left: true,
                 voice: 0,
             },
@@ -178,13 +188,13 @@ const maps = [
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "IT'S NEARLY AT THE WAREHOUSES! BUILD FASTER!",
+                text: "IT'S NEARLY AT THE\nWAREHOUSES!\nBUILD FASTER!",
                 left: true,
                 voice: 0,
             },
             {
                 sprite: SPRITE_HEAD_NEWSIE,
-                text: "Is it just me or do these walls look like sponges?",
+                text: "Is it just me or do these\nwalls look like sponges?",
                 left: false,
                 waitForKey: true,
                 voice: 1,
@@ -224,20 +234,20 @@ const maps = [
             },
             {
                 sprite: SPRITE_HEAD_NEWSIE,
-                text: "What? Where did these ducks come from?",
+                text: "What? Where did these\nducks come from?",
                 left: false,
                 voice: 1,
                 waitForKey: true,
             },
             {
                 sprite: SPRITE_HEAD_DUCK,
-                text: "QUACK! QUACK QUACK! QUAACK QUAAAACK!",
+                text: "QUACK! QUACK QUACK!\nQUAACK QUAAAACK!",
                 left: true,
                 voice: 4,
             },
             {
                 sprite: SPRITE_HEAD_NEWSIE,
-                text: "Alright! Geez I guess I should help these ducks.",
+                text: "Alright! Geez I guess I\nshould help these ducks.",
                 left: false,
                 voice: 1,
             },
@@ -249,20 +259,20 @@ const maps = [
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "WHERE HAVE YOU BEEN? IT'S GOTTEN TO MAIN STREET!",
+                text: "WHERE HAVE YOU BEEN? IT'S\nGOTTEN TO MAIN STREET!",
                 left: true,
                 voice: 0,
             },
             {
                 sprite: SPRITE_HEAD_NEWSIE,
-                text: "Well there were all these ducks and they were quackin' and-",
+                text: "Well there were all these\nducks and they were\nquackin' and-",
                 left: false,
                 voice: 1,
                 waitForKey: true,
             },
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "NEVERMIND, JUST BUILD MORE WALLS!",
+                text: "NEVERMIND, JUST BUILD\nMORE WALLS!",
                 left: true,
                 voice: 0,
             },
@@ -275,13 +285,13 @@ const maps = [
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "IT'S NEARLY AT CITY HALL! ACT FAST!",
+                text: "IT'S NEARLY AT CITY HALL!\nACT FAST!",
                 left: true,
                 voice: 0,
             },
             {
                 sprite: SPRITE_HEAD_NEWSIE,
-                text: "More walls comin' right up!",
+                text: "More walls comin'\nright up!",
                 left: false,
                 voice: 1,
             },
@@ -295,13 +305,13 @@ const maps = [
         cutscene: [
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "NEWSIE! YOU DID IT! ALL THESE PEOPLE ARE SAFE!",
+                text: "NEWSIE! YOU DID IT! ALL\nTHESE PEOPLE ARE SAFE!",
                 left: true,
                 voice: 0,
             },
             {
                 sprite: SPRITE_HEAD_CHIEF,
-                text: "...WHY ARE ALL THESE DUCKS IN HERE?",
+                text: "...WHY ARE ALL THESE DUCKS\nIN HERE?",
                 left: true,
                 voice: 0,
             },
@@ -368,6 +378,8 @@ function jtrace(obj, pretty) {
 function TitleScreenState() {
     var self = {
         frame: 0,
+        showingControls: false,
+        mouseHeld: false,
     };
 
     const molasses = MolassesState(-2, 0.25);
@@ -391,8 +403,16 @@ function TitleScreenState() {
     };
 
     self.update = function() {
-        if (self.frame > SPLASH_TIME && mouse()[2]) {
-            gameState.transition(gameState.populateMapState);
+        if (mouse()[2]) {
+            if (self.frame > SPLASH_TIME && !self.showingControls) {
+                self.showingControls = true;
+                self.mouseHeld = true;
+            } else if (self.showingControls && !self.mouseHeld) {
+                gameState.transition(gameState.populateMapState);
+            }
+        } else if (self.showingControls) {
+            self.mouseHeld = false;
+
         }
         self.frame++;
         molasses.update();
@@ -432,36 +452,63 @@ function TitleScreenState() {
         spr(368, 76, 12, 14, 1, 0, 0, 11, 2);
 
         var y = 40;
-        printCentered('A game by alligator', 120, y+1, shadowColor);
-        printCentered('A game by alligator', 120, y, textColor);
-        y+= 10;
-        printCentered('for the TIC-80 fantasy console', 120, y+1, shadowColor);
-        printCentered('for the TIC-80 fantasy console', 120, y, textColor);
 
-        y += 16;
-        print(' Left Mouse - Place', 48, y+1, shadowColor, true);
-        print(' Left Mouse - Place', 48, y, textColor, true);
-        y += 10;
-        print('Right Mouse - Rotate', 48, y+1, shadowColor, true);
-        print('Right Mouse - Rotate', 48, y, textColor, true);
-        y += 10;
-        print('          R - Quick restart', 48, y+1, shadowColor, true);
-        print('          R - Quick restart', 48, y, textColor, true);
-        y += 10;
-        print('          P - Pause', 48, y+1, shadowColor, true);
-        print('          P - Pause', 48, y, textColor, true);
+        self.printShadow('North End, Boston, 1919', 120, y); y+= 10;
+        self.printShadow('2.3 Million gallons of molasses', 120, y); y+= 10;
+        self.printShadow('One newsboy', 120, y); y+= 20;
 
-        y += 16;
-        printCentered('CLICK TO CONTINUE', 120, y+1, shadowColor);
-        printCentered('CLICK TO CONTINUE', 120, y, textColor);
-        //y += 16;
-        printCentered('Awful Winter Jam 2018', 120, 125, shadowColor);
-        printCentered('Awful Winter Jam 2018', 120, 124, textColor);
+        self.printShadow('A game by alligator', 120, y); y+= 10;
+        self.printShadow('for the Awful Winter Jam 2018', 120, y); y+= 10;
+        self.printShadow('using the TIC-80 fantasy console', 120, y); y += 10;
+
+        self.printShadow('CLICK TO CONTINUE', 120, 128);
+    };
+
+    self.printShadow = function(text, x, y, color) {
+        printCentered(text, x, y+1, shadowColor);
+        printCentered(text, x, y, color || textColor);
+    };
+
+    self.drawControls = function() {
+        cls(0);
+
+        printCentered('CONTROLS', 120, 8);
+
+        var y = 40;
+        spr(SPRITE_LMB, 8, y, -1, 1, 0, 0, 2, 3);
+        print('Place piece', 28, y + 12);
+        y += 28;
+
+        spr(SPRITE_RMB, 8, y, -1, 1, 0, 0, 2, 3);
+        print('Rotate piece', 28, y + 12);
+        y += 28;
+
+        y = 32;
+        spr(SPRITE_R, 120, y, -1, 1, 0, 0, 2, 2);
+        print('Restart level', 140, y + 6);
+        y += 20;
+
+        spr(SPRITE_P, 120, y, -1, 1, 0, 0, 2, 2);
+        print('Pause', 140, y + 6);
+        y += 20;
+
+        spr(SPRITE_F11, 120, y, -1, 1, 0, 0, 2, 2);
+        print('Fullscreen', 140, y + 6);
+        y += 20;
+
+        spr(SPRITE_F, 120, y, -1, 1, 0, 0, 2, 2);
+        print('Toggle flashing', 140, y + 6);
+        y += 20;
+
+        printCentered('CLICK TO CONTINUE', 120, 129, shadowColor);
+        printCentered('CLICK TO CONTINUE', 120, 128, textColor);
     };
 
     self.draw = function() {
         if (self.frame < SPLASH_TIME) {
             self.drawWeirdHistory();
+        } else if (self.showingControls) {
+            self.drawControls();
         } else {
             self.drawTitle();
         }
@@ -635,16 +682,15 @@ function CutsceneState(cutscene, nextState) {
                 spr(sprite, line.left ? margin : 240 - margin - 16, y, 14, 1, false, 0, 2, 3);
             }
             if (self.linePointer === i) {
-                printWrapped(line.text.slice(0, self.textPointer), textX, y + 1, 240 - (margin + 16) * 2 - 2, line.left, line.left ? 15 : 12);
+                printWrapped(line.text.slice(0, self.textPointer), textX, y + 1, 240 - (margin + 16) * 2 - 8, line.left, line.left ? 15 : 12);
             } else {
-                printWrapped(line.text, textX, y + 1, 240 - (margin + 16) * 2 - 2, line.left, line.left ? 15 : 12);
+                printWrapped(line.text, textX, y + 1, 240 - (margin + 16) * 2 - 8, line.left, line.left ? 15 : 12);
             }
             y += 30;
         }
 
         if (self.done || self.waitingForKey) {
-            const color = (frameCounter % 12 < 6) ? 3 : 15;
-            printCentered('CLICK TO CONTINUE', 120, 128, color);
+            printCentered('CLICK TO CONTINUE', 120, 128, flash(15, 3));
         } else if (!map.disableCutsceneSkip) {
             printCentered('RIGHT CLICK TO SKIP', 120, 128);
         }
@@ -697,6 +743,7 @@ function BuildState(piecesToPlace, timeToPlace) {
     const flashShadowColour = 12;
 
     const placementDelay = 250;
+    const lastPieceTime = 5000;
 
     self.onEnter = function() {
         self.endTime = gameTime + timeToPlace * 1000;
@@ -819,7 +866,12 @@ function BuildState(piecesToPlace, timeToPlace) {
     };
 
     self.update = function() {
-        if (btnp(5) || (gameTime > self.endTime && !self.hasPiece)) {
+        // if (btnp(5) || (gameTime > self.endTime && !self.hasPiece)) {
+        //     self.moveToNextState();
+        // }
+
+        if ((gameTime > (self.endTime + lastPieceTime))
+            || (gameTime > self.endTime && !self.hasPiece)) {
             self.moveToNextState();
         }
 
@@ -829,7 +881,7 @@ function BuildState(piecesToPlace, timeToPlace) {
             gameState.transition(new TransitionState(60, 'RESTART!', gameState.populateMapState));
         }
 
-        if (!self.hasPiece) {
+        if (!self.hasPiece && gameTime < self.endTime) {
             self.getRandomPiece();
             self.hasPiece = true;
             self.rotation = 0;
@@ -869,7 +921,7 @@ function BuildState(piecesToPlace, timeToPlace) {
                     if (!self.validPlacement) {
                         c = invalidShadowColour;
                     } else if (self.endTime - gameTime < 2000) {
-                        c = frameCounter % 16 < 8 ? shadowColour : flashShadowColour;
+                        c = flashSlow(flashShadowColour, shadowColour);
                     } else {
                         c = shadowColour;
                     }
@@ -890,10 +942,11 @@ function BuildState(piecesToPlace, timeToPlace) {
         var tm = Math.max((self.endTime - gameTime) / 1000, 0).toFixed(0);
         var color = 15;
         if (tm <= 0) {
-            tm = 'LAST BLOCK!';
-            color = (frameCounter % 12 < 6) ? 3 : 15;
+            const countdown = (((self.endTime + lastPieceTime) - gameTime) / 1000).toFixed(0)
+            tm = 'LAST BLOCK! ' + countdown;
+            color = flashSlow(15, 3);
         }
-        printCentered(tm, 120, 6, 14, 0, 2);
+        printCentered(tm, 120, 6, 2, 0, 2);
         printCentered(tm, 120, 4, color, 0, 2);
     };
 
@@ -1292,7 +1345,7 @@ function RoundEndState() {
                 gameState.transition(new TransitionState(TRANSITION_TIME, TXT_BUILDING, gameState.buildState));
             }
         } else {
-            self.nextUpdateTime += 2000;
+            self.nextUpdateTime += 100;
             self.finished = true;
             if (self.won) {
                 music(MUSIC_VICTORY, 0, 0, false);
@@ -1312,7 +1365,7 @@ function RoundEndState() {
 
         drawMap(self.xOffset);
         drawEntities(self.xOffset);
-        const flashingColor = (frameCounter % 12 < 6) ? highlightColor : highlightColor - 1;
+        const flashingColor = flash(highlightColor, highlightColor - 1);
         const count = self.enclosedSurvivors.length ? (self.currentSurvivorIndex + 1) : 0;
         const x = 40;
         var y = 16;
@@ -1326,7 +1379,6 @@ function RoundEndState() {
 
         rect(0, 0, 80, 136, 0);
 
-        printCentered(count, x, y+1, 1, 0, 2);
         printCentered(count, x, y, flashingColor, 0, 2);
         y += 20;
         printCentered(map.survivorName || 'PEOPLE', x, y, 15);
@@ -1350,7 +1402,7 @@ function RoundEndState() {
                 printCentered('SAVE MORE!', x, y, flashingColor);
             }
 
-            const color = (frameCounter % 12 < 6) ? 15 : 3;
+            const color = flash(15, 3);
             y += 24;
             printCentered('CLICK', x, y, color);
             y += 8;
@@ -1368,7 +1420,15 @@ function EndState() {
 
     self.onEnter = function() {
         self.canResetTime = gameTime + 2000;
+    };
 
+    self.update = function() {
+        if (gameTime > self.canResetTime && mouse()[2]) {
+            reset();
+        }
+    };
+
+    self.draw = function() {
         cls(0);
         var y = 4;
         printCentered('You saved', 120, y); y+= 16;
@@ -1383,12 +1443,6 @@ function EndState() {
         printCentered('sponge', 120, y, 12); y+= 16;
 
         printCentered('CLICK TO RESET', 120, y); y+= 16;
-    };
-
-    self.update = function() {
-        if (gameTime > self.canResetTime && mouse()[2]) {
-            reset();
-        }
     };
 
     return self;
@@ -1586,6 +1640,18 @@ function printCentered(text, x, y, color, fixed, scale) {
 }
 
 function printWrapped(text, x, y, width, left, color, fixed, scale) {
+    var lines = text.split('\n');
+    lines.forEach(function(line, index) {
+        if (left) {
+            print(line, x, y + (index * 8), color, fixed, scale);
+        } else {
+            const lineWidth = print(line, -100, -100, color, fixed, scale);
+            print(line, (x + width) - lineWidth, y + (index * 8), color, fixed, scale);
+        }
+    });
+}
+
+function printWrappedOld(text, x, y, width, left, color, fixed, scale) {
     var lines = [''];
     text.split(' ').forEach(function(word) {
         const line = lines[lines.length - 1] + word + ' ';
@@ -1613,6 +1679,21 @@ function drawPause() {
     rect(120 - w/2, 68 - h/2, 80, 20, 0);
     rectb(120 - w/2, 68 - h/2, 80, 20, 2);
     printCentered('- PAUSED -', 120, 68);
+}
+
+function flashSpeed(c1, c2, speed) {
+    if (globals.enableFlashing && (frameCounter % (speed * 2) < speed)) {
+        return c2;
+    }
+    return c1;
+}
+
+function flash(c1, c2) {
+    return flashSpeed(c1, c2, 8);
+}
+
+function flashSlow(c1, c2) {
+    return flashSpeed(c1, c2, 10);
 }
 
 // ----------------------------------------------------------------------------
@@ -1644,12 +1725,18 @@ function TIC() {
     try {
         if (!globals.paused) {
             const tm = time();
-            gameTime += tm- lastFrameTime
+            gameTime += tm - lastFrameTime
             lastFrameTime = tm;
+        } else {
+            lastFrameTime = time();
         }
 
         if (keyp(16)) {
             globals.paused = !globals.paused;
+        }
+
+        if (keyp(6)) {
+            globals.enableFlashing = !globals.enableFlashing;
         }
 
         if (!globals.paused) {
